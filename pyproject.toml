@@ -3,7 +3,7 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["benchmark"]
+packages = ["src/benchmark"]
 
 [project]
 name = "Benchmark"
