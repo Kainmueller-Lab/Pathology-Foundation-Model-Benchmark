@@ -6,7 +6,7 @@ requires = ["hatchling"]
 packages = ["benchmark"]
 
 [project]
-name = "Pathology-Foundation-Model-Benchmark"
+name = "Benchmark"
 version = "0.0.1"
 description = "Benchmarking the ability of pathology foundation models to do cell type classification."
 readme = "README.md"
