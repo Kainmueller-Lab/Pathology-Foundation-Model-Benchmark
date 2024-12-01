@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+jobs:
+  build:
+    name: Wheels and Source Distribution
+    runs-on: ubuntu-latest
+    strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      fail-fast: false
+
+    steps:
+      - name: Checkout ${{ github.repository }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Wheels and Source Distribution
+        run: pipx run build --wheel --sdist
+
+      - name: Check Metadata
+        run: pipx run twine check dist/*
+
+      - name: Store Wheel and Source Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/*
