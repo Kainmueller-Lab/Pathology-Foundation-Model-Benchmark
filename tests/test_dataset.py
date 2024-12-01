@@ -1,4 +1,4 @@
-from benchmark.benchmark import Dataset
+from benchmark.dataset import Dataset
 
 
 def test_dataset():
