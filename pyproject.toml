@@ -56,7 +56,7 @@ testpaths = ["tests"]
 xfail_strict = true
 addopts = [
     "--import-mode=importlib", # allow using test files with same name
-    "--cov=bio_image_datasets",
+    "--cov=benchmark",
     "--cov-report=lcov",
 ]
 
