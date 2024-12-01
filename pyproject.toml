@@ -2,6 +2,9 @@
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["benchmark"]
+
 [project]
 name = "Pathology-Foundation-Model-Benchmark"
 version = "0.0.1"
