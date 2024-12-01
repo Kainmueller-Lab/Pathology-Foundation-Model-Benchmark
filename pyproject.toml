@@ -1,0 +1,130 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/benchmark"]
+
+[project]
+name = "Benchmark"
+version = "0.0.1"
+description = "Benchmarking the ability of pathology foundation models to do cell type classification."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Lorenz Rumberger" }, { name = "Noah F. Greenwald" }]
+maintainers = [
+    { name = "Lorenz Rumberger", email = "joseflorenz.rumberger@mdc-berlin.de" },
+]
+urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.io/"
+urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
+urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
+dependencies = [
+#    "torch>=2.2.0",
+    "scikit-image",
+    "tqdm",
+    "numpy",
+    "pandas",
+    "pathlib",
+    "lmdb",
+]
+
+[[project.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "supplemental"
+
+[project.optional-dependencies]
+dev = ["pre-commit", "twine>=4.0.2"]
+doc = [
+    "docutils>=0.8,!=0.18.*,!=0.19.*",
+    "sphinx>=5",
+    "sphinx-rtd-theme>1",
+    "sphinx-autodoc-typehints",
+    "sphinxext-opengraph",
+    # For notebooks
+    "ipykernel",
+    "ipython",
+    "sphinx-copybutton",
+    "pandas",
+]
+test = ["pytest", "coverage", "coveralls[toml]", "pytest-cov", "pytest-socket"]
+
+[tool.coverage.run]
+source = ["benchmark"]
+omit = ["**/test_*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+xfail_strict = true
+addopts = [
+    "--import-mode=importlib", # allow using test files with same name
+    "--cov=benchmark",
+    "--cov-report=lcov",
+]
+
+[tool.ruff]
+src = ["src"]
+line-length = 120
+select = [
+    "F",      # Errors detected by Pyflakes
+    "E",      # Error detected by Pycodestyle
+    "W",      # Warning detected by Pycodestyle
+    "I",      # isort
+    "D",      # pydocstyle
+    "B",      # flake8-bugbear
+    "TID",    # flake8-tidy-imports
+    "C4",     # flake8-comprehensions
+    "BLE",    # flake8-blind-except
+    "UP",     # pyupgrade
+    "RUF100", # Report unused noqa directives
+]
+ignore = [
+    # line too long -> we accept long comment lines; formatter gets rid of long code lines
+    "E501",
+    # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+    "E731",
+    # allow I, O, l as variable names -> I is the identity matrix
+    "E741",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in __init__
+    "D107",
+    # Errors from function calls in argument defaults. These are fine when the result is immutable.
+    "B008",
+    # __magic__ methods are are often self-explanatory, allow missing docstrings
+    "D105",
+    # first line should end with a period [Bug: doesn't work with single-line docstrings]    "D400",
+    # First line should be in imperative mood; try rephrasing
+    "D401",
+    ## Disable one in each pair of mutually incompatible rules
+    # We don’t want a blank line before a class docstring
+    "D203",
+    # We want docstrings to start immediately after the opening triple quote
+    "D213",
+]
+extend-include = ["*.ipynb"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.per-file-ignores]
+"docs/*" = ["I"]
+"tests/*" = ["D"]
+"*/__init__.py" = ["F401"]
+
+[tool.cruft]
+skip = [
+    "tests",
+    "src/**/__init__.py",
+    "src/**/basic.py",
+    "docs/api.md",
+    "docs/changelog.md",
+    "docs/references.bib",
+    "docs/references.md",
+]
