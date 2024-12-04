@@ -32,50 +32,47 @@ def normalize(x):
     return (x - x.min()) / (x.max() - x.min() + 1e-5)
 
 
-def save_tiles_to_lmdb(tiles, lmdb_dir, split_name="train", file_idx=0):
-        for img_idx, fov in tqdm(enumerate(tiles), total=len(tiles)):
-            fov_name_cleaned = "".join(e for e in str(fov) if e.isalnum())
-            do_print = img_idx % 50 == 0
-            if do_print:
-                print(f'idx: {img_idx}/{len(fovs)}, fov: "{fov_name_cleaned}"')
+def save_tile_dict_to_lmdb(txn, tile_dict, lmdb_path):
+    """Save a tile dictionary to an LMDB database.
+    
+    Args:
+        txn: LMDB transaction object
+        tile_dict: Dictionary containing the tile data
+        lmdb_path: Path to the LMDB database
+    """
+    tile_name = tile_dict["tile_name"]
+    sample_name = tile_dict["sample_name"]
+    image = tile_dict["image"]
+    semantic_mask = tile_dict["semantic_mask"]
+    instance_mask = tile_dict.get("instance_mask", None)
 
-            img_idx = f"{img_idx:04d}"
-            metadata_dict = {}
+    # Encode image as JPEG
+    image_jpg_encoded = iio.imwrite("<bytes>", image, extension=".png")
 
-            fov_path = os.path.join(path, fov)
+    # Encode semantic mask as bytes
+    semantic_mask_bytes = semantic_mask.tobytes()
 
-            # get metadata
-            metadata_dict["fov"] = fov
-            metadata_bytes = json.dumps(metadata_dict).encode("utf-8")
+    # Create metadata dictionary and encode as bytes
+    metadata_dict = {
+        "tile_name": tile_name,
+        "sample_name": sample_name,
+    }
+    metadata_bytes = json.dumps(metadata_dict).encode("utf-8")
 
-            # get segmentation mask
-            # segmentation mask has to be uint16 because of values of to ~3000 segments
-            # Thus, cannot be jpeg compressed
-            segmentation_mask = iio.imread(segmentation_path).squeeze().astype(np.uint16)
+    # Create patch index
+    patch_idx = tile_name.encode("utf-8")
 
-            crop_jpg_encoded = iio.imwrite(
-                "<bytes>",
-                crop,
-                extension=".jpeg",
-            )
-            patch_idx = f"{img_idx}_p{x_crop_idx + y_crop_idx}"
-            txn_imgs.put(
-                crop_ch_idx_bytes,
-                crop_jpg_encoded,
-            )
+    # Save image, semantic mask, and metadata to LMDB
+    txn.put(patch_idx, image_jpg_encoded)
+    txn.put(patch_idx + b"_semantic", semantic_mask_bytes)
+    txn.put(patch_idx + b"_meta", metadata_bytes)
 
-            patch_idx_bytes = patch_idx.encode("utf-8")
-            txn_labels.put(
-                patch_idx_bytes,
-                crop_mask.tobytes(),
-            )
-            txn_meta.put(
-                patch_idx_bytes,
-                metadata_bytes,
-            )
+    # Save instance mask if it exists
+    if instance_mask is not None:
+        instance_mask_bytes = instance_mask.tobytes()
+        txn.put(patch_idx + b"_instance", instance_mask_bytes)
 
-    env.close()
-    print(f"FINISHED DATASET {dataset}, SAVED AT: {dataset_lmdb_dir}")
+    print(f"Saved tile {tile_name} to LMDB at {lmdb_path}")
 
 
 def load_dataset(dataset_name: str, dataset_path: Path):
@@ -120,22 +117,27 @@ def main(args):
         
         # TODO: limit iteration with start_fov_idx, end_fov_idx
         for idx in tqdm(range(len(dataset)), total=len(dataset)):
-            img = dataset.get_image(idx)
+            img = dataset.get_he(idx)
             inst_mask = dataset.get_instance_mask(idx)
             semantic_mask = dataset.get_semantic_mask(idx)
-
-            # TODO: handle segpath that doesnt have inst_mask
-            img_tiles = transform_to_tiles(img)
-            inst_mask_tiles = transform_to_tiles(inst_mask)
-            semantic_mask_tiles = transform_to_tiles(semantic_mask)
-            tiles_dict = {
-                "image": img_tiles,
-                "instance_mask": inst_mask_tiles,
-                "semantic_mask": semantic_mask_tiles,
-            }
+            sample_name = dataset.get_sample_name(idx)
+            img_tiles = transform_to_tiles(img, tile_size=args.tile_size)
+            inst_mask_tiles = transform_to_tiles(inst_mask, tile_size=args.tile_size)
+            semantic_mask_tiles = transform_to_tiles(semantic_mask, tile_size=args.tile_size)
+            tile_names = [f"{sample_name}_TILE_{i}" for i in range(len(img_tiles))]
+            for idx in range(len(img_tiles)):
+                tile_dict = {
+                    "tile_name": tile_names[idx],
+                    "sample_name": sample_name,
+                    "image": img_tiles[idx],
+                    "semantic_mask": semantic_mask_tiles[idx],
+                }
+                if inst_mask is not None:
+                    tile_dict["instance_mask"] = inst_mask_tiles[idx]
+                save_tile_to_lmdb(txn, tile_dict, lmdb_path)
             print(f"TOTAL #tiles {len(img_tiles)} FOR DATASET {dataset}")
             # TODO: add semantic mask, instance mask to lmdb tiling
-            save_tiles_to_lmdb(txn, tiles_dict, base_lmdb_dir)
+            # save_tiles_to_lmdb(txn, tiles_dict, base_lmdb_dir)
 
 
 def get_args_parser():
@@ -174,7 +176,12 @@ def get_args_parser():
         type=str,
         help="Dataset name to load",
     )
-
+    parser.add_argument(
+        "--tile_size",
+        type=int,
+        help="Tile size",
+        default=224,
+    )
     return parser
 
 
