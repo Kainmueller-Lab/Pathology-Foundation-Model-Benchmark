@@ -48,7 +48,13 @@ doc = [
     "sphinx-copybutton",
     "pandas",
 ]
-test = ["pytest", "coverage", "coveralls[toml]", "pytest-cov", "pytest-socket"]
+test = ["pytest", 
+        "coverage",
+        "coveralls[toml]",
+        "pytest-cov",
+        "pytest-socket",
+        "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
+]
 
 [tool.coverage.run]
 source = ["benchmark"]
