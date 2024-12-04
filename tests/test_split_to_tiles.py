@@ -133,7 +133,9 @@ class TestSplitToTiles(unittest.TestCase):
             self.assertTrue(np.all(unique_ids >= 0), "Instance IDs should be non-negative integers.")
             if len(unique_ids) > 1:  # If there are instances in the tile
                 self.assertEqual(unique_ids.min(), 0, "Instance IDs should start from 0 (background).")
-                self.assertEqual(unique_ids.max(), len(unique_ids) - 1, "Instance IDs should be sequential starting from 0.")
+                self.assertEqual(
+                    unique_ids.max(), len(unique_ids) - 1, "Instance IDs should be sequential starting from 0."
+                )
 
     def test_transform_to_tiles_edge_cases(self):
         """Test transform_to_tiles function with edge cases."""
