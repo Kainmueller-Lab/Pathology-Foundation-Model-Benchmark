@@ -1,4 +1,5 @@
 import numpy as np
+from benchmark.utils import get_height_width, to_tuple
 
 
 def center_pad_to_size(array, desired_shape):
@@ -16,7 +17,11 @@ def center_pad_to_size(array, desired_shape):
         AssertionError: If `array` and `desired_shape` have different numbers of dimensions or if any dimension in `desired_shape` is negative.
     """
     current_shape = array.shape
-    assert len(current_shape) == len(desired_shape), "Array and desired shape must have the same number of dimensions."
+    desired_shape = to_tuple(desired_shape)
+
+    if len(current_shape) != len(desired_shape):
+        # We assume that the first dimension is the channel dimension
+        desired_shape = (current_shape[0],) + desired_shape
     assert all(dim >= 0 for dim in desired_shape), "Desired shape values must be non-negative."
 
     pad_widths = []
@@ -30,28 +35,24 @@ def center_pad_to_size(array, desired_shape):
     return padded_array
 
 
-def transform_to_tiles(sample, tile_size=224):
+def transform_to_tiles(array, tile_size=224, renumber_instances=False):
     """
-    Transform a sample into center-padded tiles of specified size.
+    Split an array into tiles of specified size, center-padded as needed.
 
     Args:
-        sample (dict): A dictionary containing the sample data with keys 'image', 'instance_mask', 'semantic_mask', and 'sample_name'.
-        tile_size (int, optional): The desired tile size after padding. Defaults to 224.
+        array (numpy.ndarray): The array to split into tiles. Expected to be at least 2D (height x width)
+            or 3D (channels x height x width).
+        tile_size (int or tuple of int, optional): The desired tile size after padding. If an integer,
+            the same size is used for height and width. If a tuple, should be (height, width). Defaults to 224.
+        renumber_instances (bool, optional): Whether to renumber instance IDs in each tile to ensure
+            sequential numbering starting from 1. Useful for instance segmentation masks. Defaults to False.
 
     Returns:
-        list of dict: A list of dictionaries, each containing a tile of the image, instance mask, semantic mask, and the sample name for that tile.
+        list of numpy.ndarray: A list containing the tiles of the array.
 
-    Raises:
-        KeyError: If required keys are missing in the sample dictionary.
     """
-    # Get the data
-    image = sample["image"]  # Image in CHW format
-    inst_mask = sample["instance_mask"]
-    seg_mask = sample["semantic_mask"]
-    sample_name = sample["sample_name"]
-
-    # Get the dimensions of the image
-    _, height, width = image.shape  # C x H x W
+    # Get the height and width of the image
+    height, width = get_height_width(array)
 
     # Decide on the number of tiles along each dimension
     n_tiles_y = int(np.ceil(height / tile_size))
@@ -70,36 +71,26 @@ def transform_to_tiles(sample, tile_size=224):
             x_start = x_indices[j]
             x_end = x_indices[j + 1]
 
-            # Extract the tile from the image and masks
-            img_tile = image[:, y_start:y_end, x_start:x_end]
-            inst_tile = inst_mask[y_start:y_end, x_start:x_end]
-            seg_tile = seg_mask[y_start:y_end, x_start:x_end]
+            # Extract the tile from the image or masks
+            if len(array.shape) == 2:
+                arr_tile = array[y_start:y_end, x_start:x_end]
+            else:
+                arr_tile = array[:, y_start:y_end, x_start:x_end]
 
             # Center pad the tiles to the desired size
-            img_tile = center_pad_to_size(img_tile, (image.shape[0], tile_size, tile_size))
-            inst_tile = center_pad_to_size(inst_tile, (tile_size, tile_size))
-            seg_tile = center_pad_to_size(seg_tile, (tile_size, tile_size))
+            arr_tile = center_pad_to_size(arr_tile, (tile_size, tile_size))
 
-            # Renumber the instances in the inst_tile
-            unique_instances = np.unique(inst_tile)
-            unique_instances = unique_instances[unique_instances != 0]  # Exclude background
-            inst_map = np.zeros_like(inst_tile)
-            for new_id, old_id in enumerate(unique_instances, start=1):
-                inst_map[inst_tile == old_id] = new_id
-
-            # Create the tile sample name
-            tile_sample_name = f"{sample_name}_tile_{tile_idx}"
-
-            # Create the tile dictionary
-            tile_dict = {
-                "image": img_tile,
-                "semantic_mask": seg_tile,
-                "instance_mask": inst_map,
-                "sample_name": tile_sample_name,
-            }
+            if renumber_instances:
+                # Renumber the instances in the inst_tile
+                unique_instances = np.unique(arr_tile)
+                unique_instances = unique_instances[unique_instances != 0]  # Exclude background
+                inst_map = np.zeros_like(arr_tile)
+                for new_id, old_id in enumerate(unique_instances, start=1):
+                    inst_map[arr_tile == old_id] = new_id
+                arr_tile = inst_map
 
             # Append the tile dictionary to the list
-            tiles.append(tile_dict)
+            tiles.append(arr_tile)
             tile_idx += 1
 
     return tiles
@@ -109,7 +100,6 @@ if __name__ == "__main__":
     import os
     from matplotlib import pyplot as plt
     from bio_image_datasets.lizard_dataset import LizardDataset
-
 
     # Define the folder to save visualizations
     visualization_folder = "./visualizations"
@@ -126,29 +116,40 @@ if __name__ == "__main__":
 
     # Get the sample
     sample = dataset[sample_idx]
-    sample["sample_name"] = dataset.get_sample_name(sample_idx)
+    sample_name = dataset.get_sample_name(sample_idx)
+
+    # Extract data from the sample
+    image = sample["image"]  # C x H x W
+    semantic_mask = sample.get("semantic_mask")  # H x W
+    instance_mask = sample.get("instance_mask")  # H x W
 
     # Transform the sample into tiles
-    tiles = transform_to_tiles(sample, tile_size=224)
-    print(f"Number of tiles created: {len(tiles)}")
+    image_tiles = transform_to_tiles(image, tile_size=224)
+    semantic_mask_tiles = transform_to_tiles(semantic_mask, tile_size=224) if semantic_mask is not None else None
+    instance_mask_tiles = (
+        transform_to_tiles(instance_mask, tile_size=224, renumber_instances=True) if instance_mask is not None else None
+    )
+
+    print(f"Number of tiles created: {len(image_tiles)}")
 
     # Visualize each tile
-    for tile in tiles:
-        tile_sample_name = tile["sample_name"]
+    for idx, img_tile in enumerate(image_tiles):
+        tile_sample_name = f"{sample_name}_tile_{idx}"
         print(f"\nProcessing tile: {tile_sample_name}")
-
-        # Extract data from the tile
-        img_tile = tile["image"]
-        semantic_mask_tile = tile["semantic_mask"]
-        instance_mask_tile = tile["instance_mask"]
 
         # Create a subfolder for each tile
         tile_folder = os.path.join(visualization_folder, tile_sample_name)
         os.makedirs(tile_folder, exist_ok=True)
 
+        # Prepare image tile for display
+        img_tile_disp = np.transpose(img_tile, (1, 2, 0))  # Convert CHW to HWC
+
+        # Get corresponding semantic and instance mask tiles
+        semantic_mask_tile = semantic_mask_tiles[idx] if semantic_mask_tiles is not None else None
+        instance_mask_tile = instance_mask_tiles[idx] if instance_mask_tiles is not None else None
+
         # Save the H&E image
         plt.figure()
-        img_tile_disp = np.transpose(img_tile, (1, 2, 0))  # Convert CHW to HWC
         plt.imshow(img_tile_disp)
         plt.title(f"H&E Image - {tile_sample_name}")
         plt.axis("off")
@@ -157,39 +158,48 @@ if __name__ == "__main__":
         plt.close()
         print(f"H&E image saved to: {he_image_path}")
 
-        # Save the semantic mask
-        plt.figure()
-        plt.imshow(semantic_mask_tile, cmap="jet")
-        plt.title(f"Semantic Mask - {tile_sample_name}")
-        plt.axis("off")
-        semantic_mask_path = os.path.join(tile_folder, f"{tile_sample_name}_semantic_mask.png")
-        plt.savefig(semantic_mask_path)
-        plt.close()
-        print(f"Semantic mask saved to: {semantic_mask_path}")
+        # Save the semantic mask if available
+        if semantic_mask_tile is not None:
+            plt.figure()
+            plt.imshow(semantic_mask_tile, cmap="jet")
+            plt.title(f"Semantic Mask - {tile_sample_name}")
+            plt.axis("off")
+            semantic_mask_path = os.path.join(tile_folder, f"{tile_sample_name}_semantic_mask.png")
+            plt.savefig(semantic_mask_path)
+            plt.close()
+            print(f"Semantic mask saved to: {semantic_mask_path}")
 
-        # Save the instance mask
-        plt.figure()
-        plt.imshow(instance_mask_tile, cmap="jet")
-        plt.title(f"Instance Mask - {tile_sample_name}")
-        plt.axis("off")
-        instance_mask_path = os.path.join(tile_folder, f"{tile_sample_name}_instance_mask.png")
-        plt.savefig(instance_mask_path)
-        plt.close()
-        print(f"Instance mask saved to: {instance_mask_path}")
+        # Save the instance mask if available
+        if instance_mask_tile is not None:
+            plt.figure()
+            plt.imshow(instance_mask_tile, cmap="jet")
+            plt.title(f"Instance Mask - {tile_sample_name}")
+            plt.axis("off")
+            instance_mask_path = os.path.join(tile_folder, f"{tile_sample_name}_instance_mask.png")
+            plt.savefig(instance_mask_path)
+            plt.close()
+            print(f"Instance mask saved to: {instance_mask_path}")
 
         # Save the combined visualization
-        fig, ax = plt.subplots(1, 3, figsize=(15, 5))
-        ax[0].imshow(img_tile_disp)
-        ax[0].set_title("H&E Image")
-        ax[0].axis("off")
+        num_subplots = 1 + int(semantic_mask_tile is not None) + int(instance_mask_tile is not None)
+        fig, ax = plt.subplots(1, num_subplots, figsize=(5 * num_subplots, 5))
 
-        ax[1].imshow(semantic_mask_tile, cmap="jet")
-        ax[1].set_title("Semantic Mask")
-        ax[1].axis("off")
+        ax_idx = 0
+        ax[ax_idx].imshow(img_tile_disp)
+        ax[ax_idx].set_title("H&E Image")
+        ax[ax_idx].axis("off")
+        ax_idx += 1
 
-        ax[2].imshow(instance_mask_tile, cmap="jet")
-        ax[2].set_title("Instance Mask")
-        ax[2].axis("off")
+        if semantic_mask_tile is not None:
+            ax[ax_idx].imshow(semantic_mask_tile, cmap="jet")
+            ax[ax_idx].set_title("Semantic Mask")
+            ax[ax_idx].axis("off")
+            ax_idx += 1
+
+        if instance_mask_tile is not None:
+            ax[ax_idx].imshow(instance_mask_tile, cmap="jet")
+            ax[ax_idx].set_title("Instance Mask")
+            ax[ax_idx].axis("off")
 
         full_sample_path = os.path.join(tile_folder, f"{tile_sample_name}_full_sample.png")
         plt.suptitle(f"Tile Visualization - {tile_sample_name}")
