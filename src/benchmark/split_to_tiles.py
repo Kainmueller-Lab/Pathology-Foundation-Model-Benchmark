@@ -1,5 +1,4 @@
 import numpy as np
-from bio_image_datasets.lizard_dataset import LizardDataset
 
 
 def center_pad_to_size(array, desired_shape):
@@ -109,6 +108,8 @@ def transform_to_tiles(sample, tile_size=224):
 if __name__ == "__main__":
     import os
     from matplotlib import pyplot as plt
+    from bio_image_datasets.lizard_dataset import LizardDataset
+
 
     # Define the folder to save visualizations
     visualization_folder = "./visualizations"

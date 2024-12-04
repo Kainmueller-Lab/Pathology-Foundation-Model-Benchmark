@@ -27,6 +27,8 @@ dependencies = [
     "pandas",
     "pathlib",
     "lmdb",
+    "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
+
 ]
 
 [[project.source]]
@@ -53,7 +55,6 @@ test = ["pytest",
         "coveralls[toml]",
         "pytest-cov",
         "pytest-socket",
-        "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
 ]
 
 [tool.coverage.run]
