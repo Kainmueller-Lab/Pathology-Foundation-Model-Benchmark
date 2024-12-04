@@ -27,6 +27,8 @@ dependencies = [
     "pandas",
     "pathlib",
     "lmdb",
+    "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
+
 ]
 
 [[project.source]]
@@ -48,7 +50,12 @@ doc = [
     "sphinx-copybutton",
     "pandas",
 ]
-test = ["pytest", "coverage", "coveralls[toml]", "pytest-cov", "pytest-socket"]
+test = ["pytest", 
+        "coverage",
+        "coveralls[toml]",
+        "pytest-cov",
+        "pytest-socket",
+]
 
 [tool.coverage.run]
 source = ["benchmark"]
@@ -62,6 +69,9 @@ addopts = [
     "--cov=benchmark",
     "--cov-report=lcov",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.ruff]
 src = ["src"]
