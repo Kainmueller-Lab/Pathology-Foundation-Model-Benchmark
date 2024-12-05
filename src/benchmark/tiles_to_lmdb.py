@@ -15,7 +15,7 @@ from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
 
 
-def create_lmdb_database(dataset, lmdb_path, tile_size=224):
+def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**40):
     """
     Create an LMDB database for a dataset
 
@@ -23,9 +23,8 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224):
         dataset: Instance of a dataset.
         lmdb_path: Path to the LMDB file to create.
         tile_size: The size of the tiles to create.
+        map_size: The maximum size of the LMDB map.
     """
-    # Estimate max LMDB map size as 1 TB
-    map_size = 2**40  # Just use 1 TB
 
     # Create the LMDB environment
     env = lmdb.open(lmdb_path, map_size=map_size)

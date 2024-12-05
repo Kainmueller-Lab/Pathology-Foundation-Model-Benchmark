@@ -103,7 +103,7 @@ class TestCreateLMDBDatabase(unittest.TestCase):
         lmdb_path = os.path.join(self.lmdb_dir, "lizard_lmdb")
 
         # Call the function with the mock dataset
-        create_lmdb_database(dataset, lmdb_path=lmdb_path, tile_size=self.tile_size)
+        create_lmdb_database(dataset, lmdb_path=lmdb_path, tile_size=self.tile_size, map_size=2**26)
 
         # Verify that the LMDB database has been created
         self.assertTrue(os.path.exists(lmdb_path), "LMDB database was not created.")
@@ -134,7 +134,7 @@ class TestCreateLMDBDatabase(unittest.TestCase):
         lmdb_path = os.path.join(self.lmdb_dir, "segpath_lmdb")
 
         # Call the function with the mock dataset
-        create_lmdb_database(dataset, lmdb_path=lmdb_path, tile_size=self.tile_size)
+        create_lmdb_database(dataset, lmdb_path=lmdb_path, tile_size=self.tile_size, map_size=2**26)
 
         # Verify that the LMDB database has been created
         self.assertTrue(os.path.exists(lmdb_path), "LMDB database was not created.")
