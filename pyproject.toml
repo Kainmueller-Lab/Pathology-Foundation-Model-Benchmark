@@ -27,6 +27,8 @@ dependencies = [
     "pandas",
     "pathlib",
     "lmdb",
+    'fastremap',
+     'h5py',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
 
 ]
