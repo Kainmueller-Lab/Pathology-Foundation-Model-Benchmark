@@ -96,6 +96,12 @@ if __name__ == "__main__":
         choices=["lizard", "pannuke", "consep", "schuerch", "segpath"],
         help="Dataset to use. Options are: lizard, pannuke, consep, schuerch, segpath.",
     )
+    parser.add_argument(
+        "--map_size",
+        type=int,
+        default=2**26,
+        help="Maximum size of the LMDB map. We use ~100GB as a default.",
+    )
 
     args = parser.parse_args()
 
@@ -120,4 +126,4 @@ if __name__ == "__main__":
     dataset = dataset_class(local_path=args.local_path)
 
     # Create LMDB database
-    create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size)
+    create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
