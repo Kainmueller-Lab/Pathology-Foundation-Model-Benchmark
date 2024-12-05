@@ -10,15 +10,14 @@ from benchmark.split_to_tiles import transform_to_tiles
 
 def create_lmdb_database(dataset, lmdb_path, tile_size=224):
     """
-    Create an LMDB database for a specific split.
+    Create an LMDB database for a dataset
 
     Args:
-        dataset: The LizardDataset instance.
-        split_number: The split number (1, 2, or 3).
+        dataset: Instance of a dataset.
         lmdb_path: Path to the LMDB file to create.
         tile_size: The size of the tiles to create.
     """
-    # Estimate LMDB map size (adjust as needed)
+    # Estimate max LMDB map size as 1 TB
     map_size = 2**40  # Just use 1 TB
 
     # Create the LMDB environment
@@ -27,13 +26,16 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224):
     tile_idx = 0  # Global tile index for keys
 
     with env.begin(write=True) as txn:
+        # Loop over the dataset
         for idx in tqdm(range(len(dataset))):
+            # Extract the relevant data from the dataset
             img = dataset.get_he(idx)
             inst_mask = dataset.get_instance_mask(idx)
             semantic_mask = dataset.get_semantic_mask(idx)
             sample_name = dataset.get_sample_name(idx)
             img_tiles = transform_to_tiles(img, tile_size=tile_size)
-            inst_mask_tiles = transform_to_tiles(inst_mask, tile_size=tile_size)
+            if inst_mask is not None:
+                inst_mask_tiles = transform_to_tiles(inst_mask, tile_size=tile_size)
             semantic_mask_tiles = transform_to_tiles(semantic_mask, tile_size=tile_size)
             tile_names = [f"{sample_name}_TILE_{i}" for i in range(len(img_tiles))]
             for idx in range(len(img_tiles)):
