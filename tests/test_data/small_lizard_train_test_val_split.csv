@@ -1,0 +1,12 @@
+sample_name,train_test_val_split
+consep_5,train
+crag_1,train
+crag_10,train
+crag_13,test
+crag_17,train
+crag_34,test
+crag_35,valid
+crag_51,test
+crag_53,test
+crag_61,valid
+crag_64,valid
