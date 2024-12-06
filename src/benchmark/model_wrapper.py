@@ -5,11 +5,12 @@ from timm.data import resolve_data_config
 from huggingface_hub import login
 
 
-class SimpleSegmentationModel(torch.Module):
+class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
     def __init__(self, model_name, num_classes):
+        super(SimpleSegmentationModel, self).__init__()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
-        self.head = torch.nn.Linear(model_dim, num_classes, requires_grad=True)
+        self.head = torch.nn.Linear(model_dim, num_classes)
         self.model.eval()
         self.freeze_backbone()
 
@@ -43,7 +44,7 @@ class SimpleSegmentationModel(torch.Module):
 
 def load_model_and_transform(model_name):
     if model_name == "UNI":
-        login()
+        # login()
         model = timm.create_model(
             "hf-hub:MahmoodLab/UNI", pretrained=True, init_values=1e-5, dynamic_img_size=True
         )

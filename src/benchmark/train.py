@@ -10,6 +10,7 @@ import wandb
 from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets
 from benchmark.eval_utils import evaluate_model
+from benchmark.model_wrapper import *
 import argparse
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -65,21 +66,22 @@ def train(cfg):
     )
     val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
     test_dataloader = DataLoader(test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=4)
-    loss_fn = getattr(torch.nn, cfg.loss_fn)(**cfg.loss_kwargs).cuda()
+    loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
 
     # this maybe needs to change depending on how the model_wrapper is implemented
-    optimizer = getattr(torch.optim, cfg.optimizer)(
-        list(model.parameters()),**cfg.optimizer_kwargs
+    optimizer = getattr(torch.optim, cfg.optimizer.name)(
+        list(model.parameters()),**cfg.optimizer.params
     )
 
     lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
         optimizer, [ # linear warmup
             torch.optim.lr_scheduler.LinearLR(
-                optimizer, start_factor=0.1, end_factor=1.0, total_iters=cfg.warmup_steps
+                optimizer, start_factor=0.1, end_factor=1.0,
+                total_iters=cfg.optimizer.warmup_steps
             ),
-        getattr(torch.optim.lr_scheduler, cfg.lr_scheduler)(
-            optimizer, **cfg.lr_kwargs
-        )], milestones=[cfg.warmup_steps]
+        getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(
+            optimizer, **cfg.scheduler.params
+        )], milestones=[cfg.optimizer.warmup_steps]
     )
     # save parameters
     with open(os.path.join(cfg.experiment, 'config.yaml'), 'w') as f:
@@ -95,7 +97,10 @@ def train(cfg):
         epoch_loss = []
         model.train() # maybe change depending on how the model_wrapper is implemented
         np.random.seed(epoch)
-        for img, semantic_mask, instance_mask in train_dataloader:
+        for sample_dict in train_dataloader:
+            img = sample_dict["image"].float()
+            semantic_mask = sample_dict["semantic_mask"]
+            instance_mask = sample_dict.get("instance_mask", None)
             step += 1
             img = img.cuda()
             semantic_mask = semantic_mask.cuda()
@@ -129,7 +134,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="src/configs/config.yaml")
+    parser.add_argument("--config", type=str, default="configs/config.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)

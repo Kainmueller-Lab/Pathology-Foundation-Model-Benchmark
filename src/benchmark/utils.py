@@ -2,6 +2,7 @@ from typing import Union, Tuple
 import pandas as pd
 import numpy as np
 from benchmark.lmdb_dataset import LMDBDataset
+import json
 
 
 def get_height_width(array):
@@ -51,18 +52,20 @@ def prep_datasets(cfg):
         cfg (omegaconf): The configuration object.
 
     Returns:
-        tuple: A tuple containing the training and validation datasets.
+        tuple: A tuple containing the train, validation, test datasets, and the label dictionary.
     """
     # load split .csv
     split_df = pd.read_csv(cfg.dataset.split) 
     # enforce column names
-    assert set(['sample_name', 'train_test_val_split']) == set(split_df.columns):
+    assert set(['sample_name', 'train_test_val_split']) == set(split_df.columns)
     # enfore split names
     assert set(['train', 'test', 'valid']) == set(split_df['train_test_val_split'].unique())
+    label_dict = json.load(open(cfg.dataset.label_dict))
     # load dataset
     datasets = []
-    for split in ['train', 'test', 'valid']:
+    for split in ['train', 'valid', 'test']:
         include_fovs = split_df[split_df['train_test_val_split'] == split]['sample_name'].tolist()
-        dataset = LMDBDataset(path=cfg.dataset.lmdb_path, include_sample_names=include_fovs)
+        dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_fovs)
         datasets.append(dataset)
+    datasets.append(label_dict)
     return tuple(datasets)
