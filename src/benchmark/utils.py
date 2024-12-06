@@ -1,5 +1,6 @@
 from typing import Union, Tuple
 import numpy as np
+from PIL import Image
 
 
 def get_height_width(array):
@@ -40,3 +41,15 @@ def to_tuple(dim: Union[int, tuple[int, ...]]) -> tuple[int, ...]:
         return dim
     else:
         raise ValueError("Dimension must be an integer or a tuple of two integers.")
+
+
+def render_segmentation(segmentation_logits, dataset):
+    raise NotImplementedError
+    # TODO: Define colormaps
+
+    DATASET_COLORMAPS = None
+
+    colormap = DATASET_COLORMAPS[dataset]
+    colormap_array = np.array(colormap, dtype=np.uint8)
+    segmentation_values = colormap_array[segmentation_logits + 1]
+    return Image.fromarray(segmentation_values)

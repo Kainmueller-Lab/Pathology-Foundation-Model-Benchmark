@@ -75,6 +75,10 @@ addopts = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+
 [tool.ruff]
 src = ["src"]
 line-length = 120
