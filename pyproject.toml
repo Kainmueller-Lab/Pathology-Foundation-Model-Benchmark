@@ -20,7 +20,6 @@ urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.i
 urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 dependencies = [
-#    "torch>=2.2.0",
     "scikit-image",
     "tqdm",
     "numpy",
@@ -30,8 +29,11 @@ dependencies = [
     'fastremap',
     'h5py',
     'torch',
+    'timm',
+    'huggingface_hub',
+    'omegaconf',
+    'wandb',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
-
 ]
 
 [[project.source]]
