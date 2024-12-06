@@ -20,6 +20,7 @@ def get_height_width(array):
     elif np.ndim(array) == 3:
         _, height, width = array.shape
     else:
+        print('DIMENSIONS', np.ndim(array))
         raise ValueError("Input array must have 2 or 3 dimensions.")
     return height, width
 

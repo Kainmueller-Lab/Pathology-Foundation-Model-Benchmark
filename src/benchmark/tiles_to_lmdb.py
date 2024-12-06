@@ -34,8 +34,10 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
     with env.begin(write=True) as txn:
         # Loop over the dataset
         for idx in tqdm(range(len(dataset))):
+            print('DATASET LENGTH', len(dataset))
             # Extract the relevant data from the dataset
             img = dataset.get_he(idx)
+            print('IMG DIMENSIONS', img.shape)
             inst_mask = dataset.get_instance_mask(idx)
             semantic_mask = dataset.get_semantic_mask(idx)
             sample_name = dataset.get_sample_name(idx)
@@ -127,3 +129,6 @@ if __name__ == "__main__":
 
     # Create LMDB database
     create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
+
+
+# python tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/data/pannuke/fold1 --output_path /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/pannuke_lmdb/fold1 --dataset pannuke
