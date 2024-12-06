@@ -33,6 +33,9 @@ dependencies = [
     "lmdb",
     "einops",
     "einops_exts",
+    'fastremap',
+    'h5py',
+    'torch',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
     
 ]
