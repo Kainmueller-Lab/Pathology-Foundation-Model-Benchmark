@@ -19,6 +19,7 @@ class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
     def __init__(self, model_name, num_classes):
         super(SimpleSegmentationModel, self).__init__()
+        super(SimpleSegmentationModel, self).__init__()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(
             in_channels=model_dim, out_channels=num_classes, kernel_size=1
