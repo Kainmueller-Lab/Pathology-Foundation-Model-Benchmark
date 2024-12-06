@@ -46,15 +46,15 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
                 inst_mask_tiles = [fastremap.renumber(tile, in_place=True)[0] for tile in inst_mask_tiles]
             semantic_mask_tiles = transform_to_tiles(semantic_mask, tile_size=tile_size)
             tile_names = [f"{sample_name}_TILE_{i}" for i in range(len(img_tiles))]
-            for idx in range(len(img_tiles)):
+            for i in range(len(img_tiles)):
                 tile_dict = {
-                    "tile_name": tile_names[idx],
+                    "tile_name": tile_names[i],
                     "sample_name": sample_name,
-                    "image": img_tiles[idx],
-                    "semantic_mask": semantic_mask_tiles[idx],
+                    "image": img_tiles[i],
+                    "semantic_mask": semantic_mask_tiles[i],
                 }
                 if inst_mask is not None:
-                    tile_dict["instance_mask"] = inst_mask_tiles[idx]
+                    tile_dict["instance_mask"] = inst_mask_tiles[i]
                 # Serialize the tile dictionary
                 tile_data = pickle.dumps(tile_dict)
 
@@ -79,13 +79,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--local_path",
         type=str,
-        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads",
+        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/original_data/",
         help="Local path to the dataset.",
     )
     parser.add_argument(
         "--output_path",
         type=str,
-        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lmdb_dataset/lmdb_tiled_test",
+        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/lizard_lmdb",
         help="Output path for LMDB files.",
     )
     parser.add_argument("--tile_size", type=int, default=224, help="Tile size (default: 224).")
