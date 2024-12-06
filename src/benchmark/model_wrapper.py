@@ -44,7 +44,7 @@ class SimpleSegmentationModel(torch.nn.Module):
 
 def load_model_and_transform(model_name):
     if model_name == "UNI":
-        # login()
+        login()
         model = timm.create_model(
             "hf-hub:MahmoodLab/UNI", pretrained=True, init_values=1e-5, dynamic_img_size=True
         )
