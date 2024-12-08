@@ -106,7 +106,7 @@ def train(cfg):
             semantic_mask = semantic_mask.cuda()
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 pred_mask = model(img)
-                loss = loss_fn(pred_mask, semantic_mask)
+                loss = loss_fn(pred_mask, semantic_mask.long())
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -119,6 +119,7 @@ def train(cfg):
                         "step": step,
                         "lr": optimizer.param_groups[0]["lr"],
                     })
+                print(f"Step {step}, loss {loss.cpu().detach().numpy()}")
             optimizer.zero_grad()
         # validation
         logging_dict = evaluate_model(model, val_dataloader)

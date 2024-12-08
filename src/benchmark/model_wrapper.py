@@ -1,8 +1,18 @@
 import torch
 import timm
+import os
 from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
 from huggingface_hub import login
+from dotenv import load_dotenv
+import numpy as np
+from pathlib import Path
+
+
+# load the environment variables
+dotenv_path = Path(__file__).parents[2] / ".env"
+load_dotenv(dotenv_path=dotenv_path)
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 
 class SimpleSegmentationModel(torch.nn.Module):
@@ -10,7 +20,10 @@ class SimpleSegmentationModel(torch.nn.Module):
     def __init__(self, model_name, num_classes):
         super(SimpleSegmentationModel, self).__init__()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
-        self.head = torch.nn.Linear(model_dim, num_classes)
+        self.head = torch.nn.Conv2d(
+            in_channels=model_dim, out_channels=num_classes, kernel_size=1
+        )
+        self.num_classes = num_classes
         self.model.eval()
         self.freeze_backbone()
 
@@ -34,24 +47,22 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         b,c,h,w = x.shape
         x = self.transform(x)
-        patch_embeddings = self.model(x) # 1, 14, 14, 1024
+        patch_embeddings = self.model(x) # 1, 1024, 14, 14
         logits= self.head(patch_embeddings)
-        logits = torch.nn.functional.interpolate(
-            logits, size=(h,w), mode="bilinear", align_corners=False
-        )
+        logits = torch.nn.functional.interpolate(logits, size=(h,w), mode="bilinear", align_corners=False)
         return logits
 
 
 def load_model_and_transform(model_name):
     if model_name == "UNI":
-        login()
+        login(token=HF_TOKEN)
         model = timm.create_model(
             "hf-hub:MahmoodLab/UNI", pretrained=True, init_values=1e-5, dynamic_img_size=True
         )
-        model.forward = lambda x: model.forward_features(x)[:,1:,:].reshape(x.shape[0], 14,14, -1)
+        model.forward = lambda x: model.forward_features(x)[:,1:,:].reshape(x.shape[0], 14,14, -1).permute(0,3,1,2)
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         with torch.no_grad():
-            model_dim = model(torch.zeros(1,3,224,224)).shape[-1]
+            model_dim = model(torch.zeros(1,3,224,224)).shape[1]
     elif model_name == "XYZ":
         NotImplementedError("Model not implemented")
     return model, transform, model_dim
