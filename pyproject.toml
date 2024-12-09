@@ -38,7 +38,7 @@ dependencies = [
     'huggingface_hub',
     'omegaconf',
     'wandb',
-    'sklearn',
+    'scikit-learn',
     'python-dotenv',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
 ]
