@@ -112,9 +112,35 @@ def load_model_and_transform(model_name):
 
 
 def clean_str(string):
+    """
+    Clean a string by removing all spaces and hyphens and converting to lower case.
+
+    Parameters
+    ----------
+    string : str
+        The string to clean.
+
+    Returns
+    -------
+    str
+        The cleaned string.
+    """
     return string.replace(" ", "").replace("-", "").lower()
 
 def get_model_dim(model):
+    """
+    Get the dimensionality of the features output by the model.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model to get the feature dimensionality from.
+
+    Returns
+    -------
+    int
+        The dimensionality of the features output by the model.
+    """
     with torch.no_grad():
         model_dim = model(torch.zeros(1, 3, 224, 224)).shape[-1]
     return model_dim
