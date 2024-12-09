@@ -29,4 +29,3 @@ def test_train():
                 os.listdir(os.path.join(log_dir, "train", "checkpoints"))
         # check if loss decreases
         assert loss_history[0] > loss_history[-1]
-test_train()
