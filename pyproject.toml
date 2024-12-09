@@ -33,7 +33,7 @@ dependencies = [
     "einops_exts",
     'fastremap',
     'h5py',
-    'torch>=2.3.1',
+    'torch',
     'timm',
     'huggingface_hub',
     'omegaconf',
