@@ -27,12 +27,5 @@ def test_train():
         for step in [100,200]:
             assert f"checkpoint_step_{step}.pth" in \
                 os.listdir(os.path.join(log_dir, "train", "checkpoints"))
-        wandb_path = os.path.join(log_dir, "train", "summary", 
-            os.listdir(os.path.join(log_dir, "train", "summary"))[0], 
-            "wandb"
-        )
-        assert os.path.exists(wandb_path)
         # check if loss decreases
         assert loss_history[0] > loss_history[-1]
-    wandb.finish()
-    sleep(5)

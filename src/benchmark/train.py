@@ -43,7 +43,7 @@ def train(cfg):
         WORLD_SIZE = 1
 
     # log only on rank 0
-    if 'RANK' in os.environ and LOCAL_RANK==0 or 'RANK' not in os.environ:
+    if 'RANK' in os.environ and LOCAL_RANK==0 or "mock" not in cfg.experiment.lower():
         logging = True
         wandb.init(
             name=cfg.experiment,
@@ -51,7 +51,6 @@ def train(cfg):
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
             dir=cfg.writer_dir,
-            mode="offline" if "mock" in cfg.experiment.lower() else "online",
             )
     else:
         logging = False
@@ -91,8 +90,6 @@ def train(cfg):
         OmegaConf.save(config=cfg, f=f)
 
     # training pipeline
-    validation_loss = []
-
     step = 0
     loss_history = []
     print("Start training")
@@ -132,6 +129,7 @@ def train(cfg):
                 loss_tmp = []
                 if logging:
                     wandb.log(logging_dict, step=step)
+                if logging or 'RANK' not in os.environ:
                     model_path = os.path.join(
                         checkpoint_path, f"checkpoint_step_{step}.pth"
                     )
