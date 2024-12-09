@@ -16,7 +16,12 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 
 
 class SimpleSegmentationModel(torch.nn.Module):
-    """Simple segmentation model that uses a backbone and a linear head."""
+    """Simple segmentation model that uses a backbone and a linear head.
+    
+    Args:
+        model_name (str): The name of the model to use.
+        num_classes (int): The number of classes in the dataset.
+    """
     def __init__(self, model_name, num_classes):
         super(SimpleSegmentationModel, self).__init__()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
@@ -53,6 +58,29 @@ class SimpleSegmentationModel(torch.nn.Module):
         return logits
 
 
+class MockModel(torch.nn.Module):
+    """Mock model for testing.
+    
+    Args:
+        embedding_dim (int): The dimension of the embeddings.
+    """
+    def __init__(self, embedding_dim):
+        super(MockModel, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.model = torch.nn.Conv2d(3, embedding_dim, kernel_size=3)
+        self.model.train()
+
+    def forward(self, x):
+        """Forward pass of the model.
+        
+        Args:
+            x: Input tensor of shape (b, c, h, w)
+        Returns:
+            logits: Output logits of shape (b, embedding_dim, h, w)
+        """
+        return self.model(x)
+
+
 def load_model_and_transform(model_name):
     if model_name == "UNI":
         login(token=HF_TOKEN)
@@ -63,6 +91,10 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         with torch.no_grad():
             model_dim = model(torch.zeros(1,3,224,224)).shape[1]
+    elif model_name == "MOCK":
+        model = MockModel(1024)
+        transform = lambda x: x
+        model_dim = 1024
     elif model_name == "XYZ":
         NotImplementedError("Model not implemented")
     return model, transform, model_dim

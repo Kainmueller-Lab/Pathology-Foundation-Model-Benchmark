@@ -19,9 +19,11 @@ torch.backends.cudnn.benchmark = True
 
 def train(cfg):
     # prepare directories for writing training infos
-    log_dir = os.path.join(cfg.experiment,'train')
+    log_dir = os.path.join(cfg.experiment_path, cfg.experiment,'train')
+    checkpoint_path = os.path.join(log_dir, "checkpoints")
     snap_dir = os.path.join(log_dir,'snaps')
     os.makedirs(snap_dir,exist_ok=True)
+    os.makedirs(checkpoint_path,exist_ok=True)
     cfg.writer_dir = os.path.join(log_dir,'summary',str(time()))
     os.makedirs(cfg.writer_dir,exist_ok=True)
 
@@ -49,6 +51,7 @@ def train(cfg):
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
             dir=cfg.writer_dir,
+            mode="offline" if "mock" in cfg.experiment.lower() else "online",
             )
     else:
         logging = False
@@ -84,19 +87,19 @@ def train(cfg):
         )], milestones=[cfg.optimizer.warmup_steps]
     )
     # save parameters
-    with open(os.path.join(cfg.experiment, 'config.yaml'), 'w') as f:
+    with open(os.path.join(cfg.experiment_path, cfg.experiment, 'config.yaml'), 'w') as f:
         OmegaConf.save(config=cfg, f=f)
 
     # training pipeline
     validation_loss = []
 
     step = 0
-    epoch = 0
+    loss_history = []
     print("Start training")
+    np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
+    loss_tmp = []
     while step < cfg.training_steps:
-        epoch_loss = []
         model.train() # maybe change depending on how the model_wrapper is implemented
-        np.random.seed(epoch)
         for sample_dict in train_dataloader:
             img = sample_dict["image"].float()
             semantic_mask = sample_dict["semantic_mask"]
@@ -112,25 +115,29 @@ def train(cfg):
                 scaler.step(optimizer)
                 scaler.update()
                 lr_scheduler.step()
-                epoch_loss.append(loss.cpu().detach().numpy())
+                optimizer.zero_grad()
+                loss_tmp.append(loss.cpu().detach().numpy())
                 if logging:
                     wandb.log({
-                        "train_loss": loss.cpu().detach().numpy() / float(WORLD_SIZE),
-                        "step": step,
+                        "train_loss": loss_tmp[-1] / float(WORLD_SIZE),
                         "lr": optimizer.param_groups[0]["lr"],
-                    })
-                print(f"Step {step}, loss {loss.cpu().detach().numpy()}")
-            optimizer.zero_grad()
-        # validation
-        logging_dict = evaluate_model(model, val_dataloader)
-        logging_dict["train_loss"] = np.mean(epoch_loss) / float(WORLD_SIZE)
-        logging_dict["epoch"] = epoch
-        logging_dict["lr"] = optimizer.param_groups[0]["lr"]
-        if logging:
-            wandb.log(logging_dict)
-            model_path = os.path.join(cfg.experiment, f"checkpoint_epoch_{epoch}.pth")
-            torch.save(model.state_dict(), model_path)
-        epoch += 1
+                    }, step=step)
+                print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
+            if step % cfg.log_interval == 0:
+                # validation
+                logging_dict = evaluate_model(model, val_dataloader, label_dict)
+                logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
+                logging_dict["lr"] = optimizer.param_groups[0]["lr"]
+                loss_history.append(logging_dict["train_loss"])
+                loss_tmp = []
+                if logging:
+                    wandb.log(logging_dict, step=step)
+                    model_path = os.path.join(
+                        checkpoint_path, f"checkpoint_step_{step}.pth"
+                    )
+                    torch.save(model.state_dict(), model_path)
+    wandb.finish()
+    return loss_history
 
 
 if __name__ == "__main__":
