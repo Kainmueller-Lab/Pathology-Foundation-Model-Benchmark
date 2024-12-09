@@ -9,7 +9,7 @@ from torch.utils.data.distributed import DistributedSampler
 import wandb
 from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets
-from benchmark.eval_utils import evaluate_model
+from benchmark.eval import Eval
 from benchmark.simple_segmentation_model import *
 import argparse
 
@@ -31,6 +31,14 @@ def train(cfg):
     model_wrapper = eval(cfg.model.model_wrapper)
     model = model_wrapper(
         model_name=cfg.model.backbone, num_classes=len(label_dict))
+    
+    evaluater = Eval(
+        label_dict, instance_level=True, pixel_level=False,
+        save_dir=os.path.join(log_dir, "validation_results"),
+        fname="validation_metrics.csv"
+    )
+    metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
+        "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
 
     # initialize dist
     if 'RANK' in os.environ:
@@ -68,8 +76,12 @@ def train(cfg):
         prefetch_factor=8 if cfg.multiprocessing else None,
         num_workers=cfg.num_workers-1 if cfg.multiprocessing else 0,
     )
-    val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
-    test_dataloader = DataLoader(test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=4)
+    val_dataloader = DataLoader(
+        val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
+    )
+    test_dataloader = DataLoader(
+        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
+    )
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
 
     # this maybe needs to change depending on how the model_wrapper is implemented
@@ -94,6 +106,7 @@ def train(cfg):
     # training pipeline
     step = 0
     loss_history = []
+    primary_metric_history = []
     print("Start training")
     np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
     loss_tmp = []
@@ -124,7 +137,10 @@ def train(cfg):
                 print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
             if step % cfg.log_interval == 0:
                 # validation
-                logging_dict = evaluate_model(model, val_dataloader, label_dict)
+                evaluater.save_dir = os.path.join(log_dir, "validation_results")
+                evaluater.fname = f"validation_metrics_step_{step}.csv"
+                logging_dict = evaluater.compute_metrics(model, val_dataloader, device)
+                logging_dict = {"validation/"+k: v for k, v in logging_dict.items() if k in metric_names}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
@@ -136,6 +152,24 @@ def train(cfg):
                         checkpoint_path, f"checkpoint_step_{step}.pth"
                     )
                     torch.save(model.state_dict(), model_path)
+                if hasattr(cfg, "primary_metric"):
+                    primary_metric_history.append(logging_dict["validation/"+cfg.primary_metric])
+                if hasattr(cfg, "primary_metric") and (logging or 'RANK' not in os.environ):
+                    if max(primary_metric_history) == logging_dict["validation/"+cfg.primary_metric]:
+                        model_path = os.path.join(
+                            snap_dir, f"best_model.pth"
+                        )
+                        torch.save(model.state_dict(), model_path)
+    if hasattr(cfg, "primary_metric"):
+        model.load_state_dict(torch.load(model_path))
+        evaluater.save_dir = os.path.join(log_dir, "test_results")
+        evaluater.fname = "test_metrics_best_model.csv"
+        logging_dict = evaluater.compute_metrics(model, test_dataloader, device)
+    if logging:
+        logging_dict = {k: v for k, v in logging_dict.items() if k in metric_names}
+        logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
+        wandb.log(logging_dict)
+
     wandb.finish()
     return loss_history
 

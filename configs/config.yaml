@@ -7,6 +7,7 @@ val_interval: 1
 multiprocessing: false
 num_workers: 0
 seed: 42
+primary_metric: f1_score_macro
 
 dataset:
   path: tests/test_data/small_lizard_lmdb
