@@ -31,16 +31,18 @@ def train(cfg):
     model_wrapper = eval(cfg.model.model_wrapper)
     model = model_wrapper(
         model_name=cfg.model.backbone, num_classes=len(label_dict))
-    model = model.cuda()
 
     # initialize dist
     if 'RANK' in os.environ:
         LOCAL_RANK, LOCAL_WORLD_SIZE, RANK, WORLD_SIZE = init_distributed()
         device = torch.device(f'cuda:{LOCAL_RANK}')
+        model = model.cuda()
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK, find_unused_parameters=True)
     else:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         WORLD_SIZE = 1
+        model = model.to(device)
+    print(f"Device: {device}")
 
     # log only on rank 0
     if 'RANK' in os.environ and LOCAL_RANK==0 or "mock" not in cfg.experiment.lower():
@@ -102,9 +104,9 @@ def train(cfg):
             semantic_mask = sample_dict["semantic_mask"]
             instance_mask = sample_dict.get("instance_mask", None)
             step += 1
-            img = img.cuda()
-            semantic_mask = semantic_mask.cuda()
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            img = img.to(device)
+            semantic_mask = semantic_mask.to(device)
+            with torch.autocast(device_type=device.type, dtype=torch.float16):
                 pred_mask = model(img)
                 loss = loss_fn(pred_mask, semantic_mask.long())
             if not torch.isnan(loss):
