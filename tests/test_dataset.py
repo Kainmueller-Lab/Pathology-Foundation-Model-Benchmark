@@ -16,7 +16,7 @@ def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
         num_samples (int): Number of samples to create.
         include_sample_names (list, optional): List of sample names to include. If None, all samples are created.
     """
-    env = lmdb.open(lmdb_path, map_size=2**20)
+    env = lmdb.open(lmdb_path, map_size=2**26)
 
     with env.begin(write=True) as txn:
         for i in range(num_samples):
@@ -42,7 +42,7 @@ def test_len():
         create_mock_lmdb(lmdb_path, num_samples=5)
         dataset = LMDBDataset(path=lmdb_path)
         assert len(dataset) == 5
-
+        del dataset
 
 def test_getitem():
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -54,6 +54,7 @@ def test_getitem():
         assert "tile_name" in sample
         assert "sample_name" in sample
         assert "data" in sample
+        del dataset
 
 
 def test_filtered_dataset():
@@ -65,6 +66,7 @@ def test_filtered_dataset():
         assert len(dataset) == 2
         for sample in dataset:
             assert sample["sample_name"] in ["sample_1", "sample_3"]
+        del dataset
 
 
 def test_index_out_of_range():
@@ -78,6 +80,7 @@ def test_index_out_of_range():
             assert False, "Expected IndexError but did not raise."
         except IndexError:
             pass
+        del dataset
 
 
 def test_no_include_sample_names():
@@ -89,3 +92,4 @@ def test_no_include_sample_names():
         assert len(dataset) == 5
         for sample in dataset:
             assert sample["sample_name"].startswith("sample_")
+        del dataset
