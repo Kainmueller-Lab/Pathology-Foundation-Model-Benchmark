@@ -33,7 +33,7 @@ dependencies = [
     "einops_exts",
     'fastremap',
     'h5py',
-    'torch',
+    'torch>=2.3.1',
     'timm',
     'huggingface_hub',
     'omegaconf',
@@ -44,7 +44,7 @@ dependencies = [
 
 [[project.source]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cu118"
+url = "https://download.pytorch.org/whl/cu121"
 priority = "supplemental"
 
 [project.optional-dependencies]
