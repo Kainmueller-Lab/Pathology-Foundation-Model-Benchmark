@@ -10,7 +10,7 @@ import wandb
 from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets
 from benchmark.eval_utils import evaluate_model
-from benchmark.model_wrapper import *
+from benchmark.simple_segmentation_model import *
 import argparse
 
 os.environ["OMP_NUM_THREADS"] = "1"
