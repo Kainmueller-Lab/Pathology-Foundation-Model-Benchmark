@@ -57,7 +57,10 @@ def train(cfg):
     else:
         logging = False
 
-    scaler = torch.amp.GradScaler(device.type)
+    if hasattr(torch.amp, "GradScaler"): # torch>=2.3.1
+        scaler = torch.amp.GradScaler(device.type)
+    else:
+        scaler = torch.cuda.amp.GradScaler(device.type)
 
     def worker_init_fn(worker_id):                                                          
         np.random.seed(np.random.get_state()[1][0] + worker_id)
