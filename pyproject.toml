@@ -12,26 +12,32 @@ description = "Benchmarking the ability of pathology foundation models to do cel
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
-authors = [{ name = "Lorenz Rumberger" }, { name = "Noah F. Greenwald" }]
+authors = [{ name = "Lorenz Rumberger" }, { name = "Nora Koreuber" }]
 maintainers = [
     { name = "Lorenz Rumberger", email = "joseflorenz.rumberger@mdc-berlin.de" },
+    { name = "Nora Koreuber", email = "nora.koreuber@mdc-berlin.de" },
 ]
 urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.io/"
 urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 dependencies = [
 #    "torch>=2.2.0",
+    "torchvision",
     "scikit-image",
     "tqdm",
     "numpy",
     "pandas",
     "pathlib",
+    "transformers",
+    "timm",
     "lmdb",
+    "einops",
+    "einops_exts",
     'fastremap',
     'h5py',
     'torch',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
-
+    
 ]
 
 [[project.source]]
