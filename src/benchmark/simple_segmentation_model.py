@@ -3,9 +3,24 @@ import timm
 from torchvision import transforms
 from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
+from timm.layers import SwiGLUPacked
 from huggingface_hub import login
 
 from transformers import AutoImageProcessor, AutoModel
+from pathlib import Path
+
+# load the environment variables
+dotenv_path = Path(__file__).parents[2] / ".env"
+load_dotenv(dotenv_path=dotenv_path)
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+model_urls = {
+    "provgigapath": "prov-gigapath/prov-gigapath",
+    "phikonv2": "owkin/phikon-v2",
+    "virchow2": "paige-ai/Virchow2",
+    "uni": "MahmoodLab/UNI",
+    "titan": "MahmoodLab/TITAN"
+}
 
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
@@ -19,7 +34,9 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         super().init()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
-        self.head = torch.nn.Linear(model_dim, num_classes, requires_grad=True)
+        self.head = torch.nn.Conv2d(
+            in_channels=model_dim, out_channels=num_classes, kernel_size=1
+        )
         self.model.eval()
         self.freeze_model()
 
@@ -43,7 +60,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         b, c, h, w = x.shape
         x = self.transform(x)
-        patch_embeddings = self.model(x) # output shape (b, p, p, d) where b=batch_size, p=patch_size, d=hidden_dim
+        patch_embeddings = self.model(x) # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
         logits= self.head(patch_embeddings)
         logits = torch.nn.functional.interpolate(
             logits, size=(h,w), mode="bilinear", align_corners=False
@@ -63,34 +80,31 @@ def load_model_and_transform(model_name):
         model_dim (int): The dimensionality of the model's output features.
     """
     if clean_str(model_name) == "provgigapath":
-        model = timm.create_model("hf_hub:prov-gigapath/prov-gigapath", pretrained=True)
-        model.forward = lambda x: model.forward_features(x)[:, 1:, :].reshape(x.shape[0], 14, 14, -1)
+        model = timm.create_model(f"hf_hub:{model_urls['provgigapath']}", pretrained=True)
+        model.forward = lambda x: model.forward_features(x)[:, 1:, :].reshape(x.shape[0], 14, 14, -1).permute(0,3,1,2)
         transform =  create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         get_model_dim(model)
     elif clean_str(model_name) == "phikonv2":
-        model = AutoModel.from_pretrained("owkin/phikon-v2")
-        model.forward = lambda x: model(x).last_hidden_state[:, 1:, :].reshape(x.shape[0], 14, 14, -1)
-        transform = AutoImageProcessor.from_pretrained("owkin/phikon-v2")
+        model = AutoModel.from_pretrained(model_urls['phikonv2'])
+        model.forward = lambda x: model(x).last_hidden_state[:, 1:, :].reshape(x.shape[0], 14, 14, -1).permute(0,3,1,2)
+        transform = AutoImageProcessor.from_pretrained(model_urls['phikonv2'])
         get_model_dim(model)
     elif clean_str(model_name) == "virchow2":
-        raise NotImplementedError(f"Access has not been granted to {model_name}") # remove when we have been granted access
-        model = timm.create_model("hf-hub:paige-ai/Virchow2", pretrained=True, pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU)
+        model = timm.create_model(f"hf-hub:{model_urls['virchow2']}", pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU)
         # start from index 5 of last_hidden_state since first token is CLS and token 1-4 are registers
-        model.forward = lambda x: model(x).last_hidden_state[:, 5:, :].reshape(x.shape[0], 16, 16, -1)
+        model.forward = lambda x: model(x)[:, 5:, :].reshape(x.shape[0], 16, 16, -1).permute(0,3,1,2)
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         get_model_dim(model)
     elif clean_str(model_name) == "uni":
         login()
-        model = timm.create_model(
-            "hf-hub:MahmoodLab/UNI", pretrained=True, init_values=1e-5, dynamic_img_size=True
-        )
-        model.forward = lambda x: model.forward_features(x)[:, 1:, :].reshape(x.shape[0], 14, 14, -1)
+        model = timm.create_model(f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True)
+        model.forward = lambda x: model.forward_features(x)[:, 1:, :].reshape(x.shape[0], 14, 14, -1).permute(0,3,1,2)
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         get_model_dim(model)
     elif clean_str(model_name) == "titan":
-        model = AutoModel.from_pretrained('MahmoodLab/TITAN', trust_remote_code=True)
+        model = AutoModel.from_pretrained(model_urls['titan'], trust_remote_code=True)
         conch, transform = model.return_conch()
-        model.forward = lambda x: conch._modules['trunk'].forward_features(x)[:,1:,:].reshape(x.shape[0], 14, 14, -1)
+        model.forward = lambda x: conch._modules['trunk'].forward_features(x)[:,1:,:].reshape(x.shape[0], 14, 14, -1).permute(0,3,1,2)
         get_model_dim(model)
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
