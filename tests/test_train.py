@@ -1,7 +1,9 @@
 from benchmark.train import train
 import tempfile
+from time import sleep
 from omegaconf import OmegaConf
 from pathlib import Path
+import wandb
 import os
 
 
@@ -32,3 +34,5 @@ def test_train():
         assert os.path.exists(wandb_path)
         # check if loss decreases
         assert loss_history[0] > loss_history[-1]
+    wandb.finish()
+    sleep(5)
