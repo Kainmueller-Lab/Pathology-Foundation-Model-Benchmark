@@ -24,8 +24,9 @@ def test_train():
         assert "snaps" in os.listdir(os.path.join(log_dir, "train"))
         assert "checkpoints" in os.listdir(os.path.join(log_dir, "train"))
         assert "summary" in os.listdir(os.path.join(log_dir, "train"))
-        for step in [100,200]:
+        for step in [10,20]:
             assert f"checkpoint_step_{step}.pth" in \
                 os.listdir(os.path.join(log_dir, "train", "checkpoints"))
         # check if loss decreases
         assert loss_history[0] > loss_history[-1]
+test_train()

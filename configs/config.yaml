@@ -1,8 +1,8 @@
 project: patho_benchmark
 experiment: uni_linear_1
 experiment_path: experiments
-training_steps: 200
-log_interval: 100
+training_steps: 20
+log_interval: 10
 val_interval: 1
 multiprocessing: false
 num_workers: 0
