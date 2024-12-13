@@ -9,7 +9,7 @@ import numpy as np
 from benchmark.split_to_tiles import transform_to_tiles
 
 from bio_image_datasets.lizard_dataset import LizardDataset
-from bio_image_datasets.pannuke import PanNukeDataset
+from bio_image_datasets.pannuke_dataset import PanNukeDataset
 from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
@@ -34,10 +34,8 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
     with env.begin(write=True) as txn:
         # Loop over the dataset
         for idx in tqdm(range(len(dataset))):
-            print('DATASET LENGTH', len(dataset))
             # Extract the relevant data from the dataset
             img = dataset.get_he(idx)
-            print('IMG DIMENSIONS', img.shape)
             inst_mask = dataset.get_instance_mask(idx)
             semantic_mask = dataset.get_semantic_mask(idx)
             sample_name = dataset.get_sample_name(idx)
@@ -101,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--map_size",
         type=int,
-        default=2**26,
+        default=10**12,
         help="Maximum size of the LMDB map. We use ~100GB as a default.",
     )
 
@@ -129,6 +127,3 @@ if __name__ == "__main__":
 
     # Create LMDB database
     create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
-
-
-# python tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/data/pannuke/fold1 --output_path /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/pannuke_lmdb/fold1 --dataset pannuke
