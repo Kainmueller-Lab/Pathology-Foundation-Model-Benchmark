@@ -145,7 +145,6 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "uni":
-        login()
         model = timm.create_model(
             f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True
         )
@@ -207,5 +206,5 @@ def get_model_dim(model):
         The dimensionality of the features output by the model.
     """
     with torch.no_grad():
-        model_dim = model(torch.zeros(1, 3, 224, 224)).shape[-1]
+        model_dim = model(torch.zeros(1, 3, 224, 224)).shape[1]
     return model_dim

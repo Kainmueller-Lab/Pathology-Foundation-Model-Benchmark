@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 from benchmark.lmdb_dataset import LMDBDataset
 import json
+import torch
+import torch.nn as nn
+from typing import Union
 
 
 def get_height_width(array):
@@ -69,3 +72,37 @@ def prep_datasets(cfg):
         datasets.append(dataset)
     datasets.append(label_dict)
     return tuple(datasets)
+
+
+class ExcludeClassLossWrapper(nn.Module):
+    """A loss wrapper that excludes specified classes from the loss calculation.
+
+    Args:
+        loss_fn (nn.Module): The loss function to wrap.
+        exclude_class (int or list of ints): Classes to exclude from the loss calculation.
+    """
+    def __init__(self, loss_fn: nn.Module, exclude_class: Union[int, list[int]]):
+        super().__init__()
+        self.loss_fn = loss_fn
+        if isinstance(exclude_class, int):
+            self.exclude_class = [exclude_class]
+        else:
+            self.exclude_class = exclude_class
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Calculate the loss, excluding specified classes.
+        
+        Args:
+            pred (torch.Tensor): The predicted tensor.
+            target (torch.Tensor): The target tensor.
+        
+        Returns:
+            torch.Tensor: The calculated loss.
+        """
+        # Calculate the loss only for included classes
+        loss = self.loss_fn(pred, target)
+        mask = torch.ones_like(loss)
+        for c in self.exclude_class:
+            loss[target == c] = 0
+            mask[target == c] = 0
+        return loss.sum() / mask.sum()
