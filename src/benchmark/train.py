@@ -152,9 +152,10 @@ def train(cfg):
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
                 loss_tmp = []
-                model.train()                    
-                if logging or 'RANK' not in os.environ:
+                model.train()
+                if logging:
                     wandb.log(logging_dict, step=step)
+                if logging or 'RANK' not in os.environ:
                     model_path = os.path.join(
                         checkpoint_path, f"checkpoint_step_{step}.pth"
                     )
