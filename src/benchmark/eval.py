@@ -167,6 +167,8 @@ class Eval:
 
         # Get unique class labels
         unique_classes = np.unique(np.concatenate([y_true, y_pred]))
+        # exclude background class
+        unique_classes = unique_classes[unique_classes != 0]
 
         # Calculate precision, recall, and F1 score per class
         precision_scores = {}
