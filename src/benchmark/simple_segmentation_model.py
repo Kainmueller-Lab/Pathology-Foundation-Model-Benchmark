@@ -4,6 +4,7 @@ from torchvision import transforms
 from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
 from timm.layers import SwiGLUPacked
+from timm.data.transforms import MaybeToTensor
 from huggingface_hub import login
 from dotenv import load_dotenv
 import os
@@ -156,10 +157,18 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "titan":
-        model = AutoModel.from_pretrained(model_urls["titan"], trust_remote_code=True)
-        conch, transform = model.return_conch()
+        titan = AutoModel.from_pretrained(model_urls["titan"], trust_remote_code=True)
+        model, _ = titan.return_conch()
+        
+        img_size = 224 # TODO: where to get this number from so we don't have to have it hardcoded?
+        transform = transforms.Compose([
+            transforms.Resize(img_size, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.CenterCrop(img_size),
+            MaybeToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        ])        
         model.forward = (
-            lambda x: conch._modules["trunk"]
+            lambda x: model._modules["trunk"]
             .forward_features(x)[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
             .permute(0, 3, 1, 2)
