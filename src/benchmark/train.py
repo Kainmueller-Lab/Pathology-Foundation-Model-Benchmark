@@ -8,7 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 from benchmark.init_dist import init_distributed
-from benchmark.utils import prep_datasets, ExcludeClassLossWrapper
+from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
 from benchmark.eval import Eval
 from benchmark.simple_segmentation_model import *
 import argparse
@@ -88,8 +88,10 @@ def train(cfg):
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
-        loss_fn = ExcludeClassLossWrapper(
-            loss_fn=loss_fn, exclude_class=cfg.loss_fn.exclude_classes
+        loss_fn = EMAInverseClassFrequencyLoss(
+            loss_fn=loss_fn,
+            exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
+            num_classes=len(label_dict)
         )
 
     # this maybe needs to change depending on how the model_wrapper is implemented
