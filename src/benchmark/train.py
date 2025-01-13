@@ -89,9 +89,9 @@ def train(cfg):
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
         loss_fn = EMAInverseClassFrequencyLoss(
-            loss_fn=loss_fn,
+            loss_fn=loss_fn, num_classes=len(label_dict),
             exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
-            num_classes=len(label_dict)
+            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False
         )
 
     # this maybe needs to change depending on how the model_wrapper is implemented

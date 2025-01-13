@@ -121,7 +121,7 @@ class EMAInverseClassFrequencyLoss(nn.Module):
     """
     def __init__(
         self, loss_fn: nn.Module, exclude_class: Union[int, list[int]], num_classes: int,
-        alpha: float = 0.99
+        alpha: float = 0.99, class_weighting=False
         ):
         super().__init__()
         self.loss_fn = loss_fn
@@ -130,6 +130,7 @@ class EMAInverseClassFrequencyLoss(nn.Module):
         self.alpha = alpha
         # Initialize EMA frequencies with small non-zero values to avoid division by zero
         self.ema_frequencies = torch.ones(num_classes) * 1e-6
+        self.class_weighting = class_weighting
 
     def update_frequencies(self, target: torch.Tensor):
         """Update EMA frequencies based on the target tensor.
@@ -160,15 +161,16 @@ class EMAInverseClassFrequencyLoss(nn.Module):
         Returns:
             torch.Tensor: The calculated loss.
         """
-        # Update EMA frequencies with the current target
-        self.update_frequencies(target)
+        if self.class_weighting:
+            # Update EMA frequencies with the current target
+            self.update_frequencies(target)
 
-        # Calculate class weights
-        weights = self.calculate_weights()
-        for c in self.exclude_class:
-            weights[c] = 0
-        
-        self.loss_fn.weight = weights.to(pred.device).softmax(dim=0)
+            # Calculate class weights
+            weights = self.calculate_weights()
+            for c in self.exclude_class:
+                weights[c] = 0
+            
+            self.loss_fn.weight = weights.to(pred.device).softmax(dim=0)
 
         # Apply weights to loss
         loss = self.loss_fn(pred, target)
