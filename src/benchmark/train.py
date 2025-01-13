@@ -147,8 +147,11 @@ def train(cfg):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
-                logging_dict = evaluater.compute_metrics(model, val_dataloader, device)                
+                logging_dict, classwise_dict = evaluater.compute_metrics(
+                    model, val_dataloader, device
+                )
                 logging_dict = {"validation/"+k: v for k, v in logging_dict.items()}
+                classwise_dict = {k+"_val": v for k, v in classwise_dict.items()}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
@@ -156,6 +159,7 @@ def train(cfg):
                 model.train()
                 if logging:
                     wandb.log(logging_dict, step=step)
+                    wandb.log(classwise_dict, step=step)
                 if logging or 'RANK' not in os.environ:
                     model_path = os.path.join(
                         checkpoint_path, f"checkpoint_step_{step}.pth"
@@ -164,10 +168,14 @@ def train(cfg):
                     # save img, pred_mask, semantic_mask, instance_mask to hdf
                     with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
                         f.create_dataset("img", data=img.cpu().detach().numpy())
-                        f.create_dataset("pred_mask", data=pred_mask.cpu().detach().numpy())
-                        f.create_dataset("semantic_mask", data=semantic_mask.cpu().detach().numpy())
+                        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy())
+                        f.create_dataset(
+                            "semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy()
+                        )
                         if instance_mask is not None:
-                            f.create_dataset("instance_mask", data=instance_mask.cpu().detach().numpy())
+                            f.create_dataset(
+                                "instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                            )
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/"+cfg.primary_metric])
                 if hasattr(cfg, "primary_metric") and (logging or 'RANK' not in os.environ):
@@ -180,11 +188,13 @@ def train(cfg):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
-        logging_dict = evaluater.compute_metrics(model, test_dataloader, device)
+        logging_dict, classwise_dict = evaluater.compute_metrics(model, test_dataloader, device)
     if logging:
         logging_dict = {k: v for k, v in logging_dict.items()}
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
+        classwise_dict = {k+"_test": v for k, v in classwise_dict.items()}
         wandb.log(logging_dict)
+        wandb.log(classwise_dict)
     wandb.finish()
     return loss_history
 
