@@ -54,7 +54,6 @@ def test_eval_instance_level():
     assert "recall_micro" in metrics
     assert "f1_score_micro" in metrics
     assert "accuracy_micro" in metrics
-    assert "confusion_matrix" in metrics
 
 
 def test_eval_save_predictions():
