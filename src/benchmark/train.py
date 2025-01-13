@@ -39,7 +39,7 @@ def train(cfg):
         fname="validation_metrics.csv"
     )
     metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-        "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
+        "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
     # initialize dist
     if 'RANK' in os.environ:
@@ -146,8 +146,10 @@ def train(cfg):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
-                logging_dict = evaluater.compute_metrics(model, val_dataloader, device)
-                logging_dict = {"validation/"+k: v for k, v in logging_dict.items() if k in metric_names}
+                logging_dict = evaluater.compute_metrics(model, val_dataloader, device)                
+                logging_dict = {
+                    "validation/"+k: v for k, v in logging_dict.items() if k in metric_names
+                }
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
