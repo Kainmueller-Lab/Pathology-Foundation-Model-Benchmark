@@ -30,16 +30,17 @@ def train(cfg):
 
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     model_wrapper = eval(cfg.model.model_wrapper)
-    model = model_wrapper(
-        model_name=cfg.model.backbone, num_classes=len(label_dict))
+    model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
+    if cfg.model.unfreeze_backbone:
+        model.unfreeze_model()
     
     evaluater = Eval(
         label_dict, instance_level=True, pixel_level=False,
         save_dir=os.path.join(log_dir, "validation_results"),
         fname="validation_metrics.csv"
     )
-    metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-        "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
+    # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
+    #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
     # initialize dist
     if 'RANK' in os.environ:
@@ -147,9 +148,7 @@ def train(cfg):
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
                 logging_dict = evaluater.compute_metrics(model, val_dataloader, device)                
-                logging_dict = {
-                    "validation/"+k: v for k, v in logging_dict.items() if k in metric_names
-                }
+                logging_dict = {"validation/"+k: v for k, v in logging_dict.items()}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
@@ -183,7 +182,7 @@ def train(cfg):
         evaluater.fname = "test_metrics_best_model.csv"
         logging_dict = evaluater.compute_metrics(model, test_dataloader, device)
     if logging:
-        logging_dict = {k: v for k, v in logging_dict.items() if k in metric_names}
+        logging_dict = {k: v for k, v in logging_dict.items()}
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
         wandb.log(logging_dict)
     wandb.finish()

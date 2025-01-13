@@ -182,12 +182,10 @@ class Eval:
             recall_scores[class_name] = recall(y_true, y_pred, class_id=cls)
             f1_scores[class_name] = f1_score_class(y_true, y_pred, class_id=cls)
             accuracy_scores[class_name] = accuracy(y_true, y_pred, class_id=cls)
-            metrics["classwise_metrics"][class_name] = {
-                "f1_score": f1_scores[class_name],
-                "precision": precision_scores[class_name],
-                "recall": recall_scores[class_name],
-                "accuracy": accuracy_scores[class_name],
-            }
+            metrics[f"{class_name}/precision"] = precision_scores[class_name]
+            metrics[f"{class_name}/recall"] = recall_scores[class_name]
+            metrics[f"{class_name}/f1_score"] = f1_scores[class_name]
+            metrics[f"{class_name}/accuracy"] = accuracy_scores[class_name]
 
         # Calculate macro averages
         metrics["precision_macro"] = np.mean(list(precision_scores.values()))
