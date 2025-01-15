@@ -5,6 +5,9 @@ from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
 from timm.layers import SwiGLUPacked
 from timm.data.transforms import MaybeToTensor
+# from musk import utils, modeling
+from timm.models import create_model
+from timm.data.constants import IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from huggingface_hub import login
 from dotenv import load_dotenv
 import os
@@ -151,7 +154,6 @@ def load_model_and_transform(model_name):
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
-        print('MODEL DIM', model_dim)
     elif clean_str(model_name) == "uni":
         model = timm.create_model(f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True)
         model.forward_patches = (
@@ -198,6 +200,23 @@ def load_model_and_transform(model_name):
         model.forward_patches = (
             lambda x: model._modules["trunk"]
             .forward_features(x)[:, 1:, :]
+            .reshape(x.shape[0], 14, 14, -1)
+            .permute(0, 3, 1, 2)
+        )
+        model_dim = get_model_dim(model)
+    elif clean_str(model_name) == "musk":
+        model = create_model("musk_large_patch16_384")
+        utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
+        model.to(device="cuda", dtype=torch.float16)
+        transform = transforms.Compose([
+            transforms.Resize(384, interpolation=3, antialias=True),
+            transforms.CenterCrop((384, 384)),
+            MaybeToTensor(),
+            transforms.Normalize(mean=IMAGENET_INCEPTION_MEAN, std=IMAGENET_INCEPTION_STD)
+        ])
+        model.forward_patches = (
+            lambda x: model(x)
+            .last_hidden_state[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
             .permute(0, 3, 1, 2)
         )
