@@ -21,9 +21,11 @@ model_urls = {
     "phikonv2": "owkin/phikon-v2",
     "virchow2": "paige-ai/Virchow2",
     "uni": "MahmoodLab/UNI",
+    "uni2": "MahmoodLab/UNI2-h",
     "titan": "MahmoodLab/TITAN",
 }
 
+IMG_SIZE = 224
 
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
@@ -38,6 +40,7 @@ class SimpleSegmentationModel(torch.nn.Module):
             num_classes (int): The number of output classes for the segmentation task.
         """
         super(SimpleSegmentationModel, self).__init__()
+        self.model_name = model_name    
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
         self.model.eval()
@@ -62,8 +65,11 @@ class SimpleSegmentationModel(torch.nn.Module):
             logits: Output logits of shape (b, num_classes, h, w)
         """
         b, c, h, w = x.shape
-        x = self.transform(x)
-        patch_embeddings = self.model(
+        if clean_str(self.model_name) == "phikonv2":
+            x = self.transform(x, return_tensors="pt")['pixel_values']
+        else: 
+            x = self.transform(x)
+        patch_embeddings = self.model.forward_patches(
             x
         )  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
         logits = self.head(patch_embeddings)
@@ -115,7 +121,7 @@ def load_model_and_transform(model_name):
         login(token=HF_TOKEN)
     if clean_str(model_name) == "provgigapath":
         model = timm.create_model(f"hf_hub:{model_urls['provgigapath']}", pretrained=True)
-        model.forward = (
+        model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
             .permute(0, 3, 1, 2)
@@ -124,7 +130,7 @@ def load_model_and_transform(model_name):
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "phikonv2":
         model = AutoModel.from_pretrained(model_urls["phikonv2"])
-        model.forward = (
+        model.forward_patches = (
             lambda x: model(x)
             .last_hidden_state[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
@@ -140,18 +146,42 @@ def load_model_and_transform(model_name):
             act_layer=torch.nn.SiLU,
         )
         # start from index 5 of last_hidden_state since first token is CLS, token 1-4 are registers
-        model.forward = (
+        model.forward_patches = (
             lambda x: model(x)[:, 5:, :].reshape(x.shape[0], 16, 16, -1).permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
+        print('MODEL DIM', model_dim)
     elif clean_str(model_name) == "uni":
-        model = timm.create_model(
-            f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True
-        )
-        model.forward = (
+        model = timm.create_model(f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True)
+        model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
+            .permute(0, 3, 1, 2)
+        )
+        transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
+        model_dim = get_model_dim(model)
+    elif clean_str(model_name) == "uni2":
+        timm_kwargs = {
+            'img_size': IMG_SIZE, 
+            'patch_size': 14, 
+            'depth': 24,
+            'num_heads': 24,
+            'init_values': 1e-5, 
+            'embed_dim': 1536,
+            'mlp_ratio': 2.66667*2,
+            'num_classes': 0, 
+            'no_embed_class': True,
+            'mlp_layer': timm.layers.SwiGLUPacked, 
+            'act_layer': torch.nn.SiLU, 
+            'reg_tokens': 8, 
+            'dynamic_img_size': True
+        }
+        model = timm.create_model(f"hf-hub:{model_urls['uni2']}", pretrained=True, **timm_kwargs)
+        # start from index 9 since first token is CLS, token 1-8 are registers
+        model.forward_patches = (
+            lambda x: model.forward_features(x)[:, 9:, :] 
+            .reshape(x.shape[0], 16, 16, -1)
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
@@ -159,15 +189,13 @@ def load_model_and_transform(model_name):
     elif clean_str(model_name) == "titan":
         titan = AutoModel.from_pretrained(model_urls["titan"], trust_remote_code=True)
         model, _ = titan.return_conch()
-        
-        img_size = 224 # TODO: where to get this number from so we don't have to have it hardcoded?
         transform = transforms.Compose([
-            transforms.Resize(img_size, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(img_size),
+            transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.CenterCrop(IMG_SIZE),
             MaybeToTensor(),
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])        
-        model.forward = (
+        model.forward_patches = (
             lambda x: model._modules["trunk"]
             .forward_features(x)[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
@@ -215,5 +243,5 @@ def get_model_dim(model):
         The dimensionality of the features output by the model.
     """
     with torch.no_grad():
-        model_dim = model(torch.zeros(1, 3, 224, 224)).shape[1]
+        model_dim = model.forward_patches(torch.zeros(1, 3, IMG_SIZE, IMG_SIZE)).shape[1]
     return model_dim
