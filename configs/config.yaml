@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: titant_linear_1
+experiment: titan_linear_1
 experiment_path: experiments
 training_steps: 20
 log_interval: 10
@@ -19,6 +19,7 @@ dataset:
 model:
   model_wrapper: SimpleSegmentationModel
   backbone: titan
+  img_size: 224
 
 optimizer:
   name: AdamW
