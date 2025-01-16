@@ -125,7 +125,7 @@ def load_model_and_transform(model_name):
     if model_name in model_urls.keys():
         login(token=HF_TOKEN)
     if clean_str(model_name) == "provgigapath":
-        patch_size = 16
+        patch_size = 16  # TODO: put in model config
         model = timm.create_model(f"hf_hub:{model_urls['provgigapath']}", pretrained=True)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
@@ -135,7 +135,8 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "phikonv2":
-        patch_size = 16
+         # TODO: fix error
+        patch_size = 16  # TODO: put in model config
         model = AutoModel.from_pretrained(model_urls["phikonv2"])
         model.forward_patches = (
             lambda x: model(x)
@@ -146,7 +147,7 @@ def load_model_and_transform(model_name):
         transform = AutoImageProcessor.from_pretrained(model_urls["phikonv2"])
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "virchow2":
-        patch_size = 14
+        patch_size = 14 # TODO: put in model config
         model = timm.create_model(f"hf-hub:{model_urls['virchow2']}", pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU,)
         # start from index 5 of last_hidden_state since first token is CLS, token 1-4 are registers
         model.forward_patches = (
@@ -155,7 +156,7 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "uni":
-        patch_size = 16
+        patch_size = 16 # TODO: put in model config
         model = timm.create_model(f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
@@ -165,8 +166,8 @@ def load_model_and_transform(model_name):
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "uni2":
-        patch_size = 14
-        timm_kwargs = {
+        patch_size = 14 # TODO: put in model config
+        timm_kwargs = { # TODO: put in model config
             'img_size': img_size, 
             'patch_size': patch_size, 
             'depth': 24,
@@ -207,11 +208,13 @@ def load_model_and_transform(model_name):
         )
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "musk":
-        patch_size = 16
+        # TODO: fix dependency issues
+        patch_size = 16 # TODO: put in model config
         model = create_model("musk_large_patch16_384")
         utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
         model.to(device="cuda", dtype=torch.float16)
         transform = transforms.Compose([
+            # TODO: check if 384 is img size / input size
             transforms.Resize(384, interpolation=3, antialias=True),
             transforms.CenterCrop((384, 384)),
             MaybeToTensor(),
