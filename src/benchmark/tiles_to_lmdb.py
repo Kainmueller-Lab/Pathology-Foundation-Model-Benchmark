@@ -9,7 +9,7 @@ import numpy as np
 from benchmark.split_to_tiles import transform_to_tiles
 
 from bio_image_datasets.lizard_dataset import LizardDataset
-from bio_image_datasets.pannuke import PanNukeDataset
+from bio_image_datasets.pannuke_dataset import PanNukeDataset
 from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--map_size",
         type=int,
-        default=2**26,
+        default=10**12,
         help="Maximum size of the LMDB map. We use ~100GB as a default.",
     )
 

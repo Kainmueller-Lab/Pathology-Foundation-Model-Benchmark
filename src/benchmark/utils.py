@@ -1,6 +1,11 @@
 from typing import Union, Tuple
+import pandas as pd
 import numpy as np
-from PIL import Image
+from benchmark.lmdb_dataset import LMDBDataset
+import json
+import torch
+import torch.nn as nn
+from typing import Union
 
 
 def get_height_width(array):
@@ -41,6 +46,66 @@ def to_tuple(dim: Union[int, tuple[int, ...]]) -> tuple[int, ...]:
         return dim
     else:
         raise ValueError("Dimension must be an integer or a tuple of two integers.")
+
+
+def prep_datasets(cfg):
+    """Prepare the training and validation datasets.
+
+    Args:
+        cfg (omegaconf): The configuration object.
+
+    Returns:
+        tuple: A tuple containing the train, validation, test datasets, and the label dictionary.
+    """
+    # load split .csv
+    split_df = pd.read_csv(cfg.dataset.split) 
+    # enforce column names
+    assert set(['sample_name', 'train_test_val_split']) == set(split_df.columns)
+    # enfore split names
+    assert set(['train', 'test', 'valid']) == set(split_df['train_test_val_split'].unique())
+    label_dict = json.load(open(cfg.dataset.label_dict))
+    # load dataset
+    datasets = []
+    for split in ['train', 'valid', 'test']:
+        include_fovs = split_df[split_df['train_test_val_split'] == split]['sample_name'].tolist()
+        dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_fovs)
+        datasets.append(dataset)
+    datasets.append(label_dict)
+    return tuple(datasets)
+
+
+class ExcludeClassLossWrapper(nn.Module):
+    """A loss wrapper that excludes specified classes from the loss calculation.
+
+    Args:
+        loss_fn (nn.Module): The loss function to wrap.
+        exclude_class (int or list of ints): Classes to exclude from the loss calculation.
+    """
+    def __init__(self, loss_fn: nn.Module, exclude_class: Union[int, list[int]]):
+        super().__init__()
+        self.loss_fn = loss_fn
+        if isinstance(exclude_class, int):
+            self.exclude_class = [exclude_class]
+        else:
+            self.exclude_class = exclude_class
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Calculate the loss, excluding specified classes.
+        
+        Args:
+            pred (torch.Tensor): The predicted tensor.
+            target (torch.Tensor): The target tensor.
+        
+        Returns:
+            torch.Tensor: The calculated loss.
+        """
+        # Calculate the loss only for included classes
+        loss = self.loss_fn(pred, target)
+        mask = torch.ones_like(loss)
+        for c in self.exclude_class:
+            loss[target == c] = 0
+            mask[target == c] = 0
+        return loss.sum() / mask.sum()
 
 
 def render_segmentation(segmentation_logits, dataset):
