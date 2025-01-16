@@ -7,7 +7,7 @@ from timm.layers import SwiGLUPacked
 from timm.data.transforms import MaybeToTensor
 # from musk import utils, modeling
 from timm.models import create_model
-from timm.data.constants import IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
+from timm.data.constants import IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from huggingface_hub import login
 from dotenv import load_dotenv
 import os
@@ -195,7 +195,7 @@ def load_model_and_transform(model_name):
             transforms.Resize(IMG_SIZE, interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.CenterCrop(IMG_SIZE),
             MaybeToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
         ])        
         model.forward_patches = (
             lambda x: model._modules["trunk"]
@@ -215,7 +215,7 @@ def load_model_and_transform(model_name):
             transforms.Normalize(mean=IMAGENET_INCEPTION_MEAN, std=IMAGENET_INCEPTION_STD)
         ])
         model.forward_patches = (
-            lambda x: model(x)
+            lambda x: model(x)[0] 
             .last_hidden_state[:, 1:, :]
             .reshape(x.shape[0], 14, 14, -1)
             .permute(0, 3, 1, 2)
@@ -224,6 +224,7 @@ def load_model_and_transform(model_name):
     elif clean_str(model_name) == "mock":
         model = MockModel(1024)
         transform = lambda x: x
+        model.forward_patches = lambda x: model(x)
         model_dim = 1024
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
