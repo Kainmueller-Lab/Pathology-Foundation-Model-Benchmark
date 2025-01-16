@@ -19,6 +19,7 @@ dataset:
 model:
   model_wrapper: SimpleSegmentationModel
   backbone: provgigapath # uni,
+  img_size: 224
 
 optimizer:
   name: AdamW
