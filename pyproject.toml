@@ -38,6 +38,7 @@ dependencies = [
     'huggingface_hub',
     'omegaconf',
     'wandb',
+    'kornia',
     'scikit-learn',
     'python-dotenv',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
@@ -61,6 +62,7 @@ doc = [
     "ipython",
     "sphinx-copybutton",
     "pandas",
+    "kornia",
 ]
 test = ["pytest", 
         "coverage",
