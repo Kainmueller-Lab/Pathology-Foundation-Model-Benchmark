@@ -8,7 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 from benchmark.init_dist import init_distributed
-from benchmark.utils import prep_datasets, ExcludeClassLossWrapper
+from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
 from benchmark.eval import Eval
 from benchmark.simple_segmentation_model import *
 import argparse
@@ -30,16 +30,17 @@ def train(cfg):
 
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     model_wrapper = eval(cfg.model.model_wrapper)
-    model = model_wrapper(
-        model_name=cfg.model.backbone, num_classes=len(label_dict))
+    model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
+    if cfg.model.unfreeze_backbone:
+        model.unfreeze_model()
     
     evaluater = Eval(
         label_dict, instance_level=True, pixel_level=False,
         save_dir=os.path.join(log_dir, "validation_results"),
         fname="validation_metrics.csv"
     )
-    metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-        "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
+    # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
+    #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
     # initialize dist
     if 'RANK' in os.environ:
@@ -87,8 +88,10 @@ def train(cfg):
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
-        loss_fn = ExcludeClassLossWrapper(
-            loss_fn=loss_fn, exclude_class=cfg.loss_fn.exclude_classes
+        loss_fn = EMAInverseClassFrequencyLoss(
+            loss_fn=loss_fn, num_classes=len(label_dict),
+            exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
+            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False
         )
 
     # this maybe needs to change depending on how the model_wrapper is implemented
@@ -146,8 +149,11 @@ def train(cfg):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
-                logging_dict = evaluater.compute_metrics(model, val_dataloader, device)
-                logging_dict = {"validation/"+k: v for k, v in logging_dict.items() if k in metric_names}
+                logging_dict, classwise_dict = evaluater.compute_metrics(
+                    model, val_dataloader, device
+                )
+                logging_dict = {"validation/"+k: v for k, v in logging_dict.items()}
+                classwise_dict = {k+"_val": v for k, v in classwise_dict.items()}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
@@ -155,6 +161,7 @@ def train(cfg):
                 model.train()
                 if logging:
                     wandb.log(logging_dict, step=step)
+                    wandb.log(classwise_dict, step=step)
                 if logging or 'RANK' not in os.environ:
                     model_path = os.path.join(
                         checkpoint_path, f"checkpoint_step_{step}.pth"
@@ -163,10 +170,14 @@ def train(cfg):
                     # save img, pred_mask, semantic_mask, instance_mask to hdf
                     with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
                         f.create_dataset("img", data=img.cpu().detach().numpy())
-                        f.create_dataset("pred_mask", data=pred_mask.cpu().detach().numpy())
-                        f.create_dataset("semantic_mask", data=semantic_mask.cpu().detach().numpy())
+                        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy())
+                        f.create_dataset(
+                            "semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy()
+                        )
                         if instance_mask is not None:
-                            f.create_dataset("instance_mask", data=instance_mask.cpu().detach().numpy())
+                            f.create_dataset(
+                                "instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                            )
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/"+cfg.primary_metric])
                 if hasattr(cfg, "primary_metric") and (logging or 'RANK' not in os.environ):
@@ -175,15 +186,18 @@ def train(cfg):
                             checkpoint_path, f"best_model.pth"
                         )
                         torch.save(model.state_dict(), model_path)
+                        best_checkpoint_step = step
     if hasattr(cfg, "primary_metric"):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
-        logging_dict = evaluater.compute_metrics(model, test_dataloader, device)
+        logging_dict, classwise_dict = evaluater.compute_metrics(model, test_dataloader, device)
     if logging:
-        logging_dict = {k: v for k, v in logging_dict.items() if k in metric_names}
+        logging_dict["best_checkpoint_step"] = best_checkpoint_step
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
+        classwise_dict = {k+"_test": v for k, v in classwise_dict.items()}
         wandb.log(logging_dict)
+        wandb.log(classwise_dict)
     wandb.finish()
     return loss_history
 

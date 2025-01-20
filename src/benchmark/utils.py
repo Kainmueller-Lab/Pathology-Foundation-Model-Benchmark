@@ -74,6 +74,26 @@ def prep_datasets(cfg):
     return tuple(datasets)
 
 
+def exclude_classes(
+        exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Exclude specified classes from the loss calculation.
+
+    Args:
+        exclude_classes (int or list of ints): Classes to exclude from the loss calculation.
+        loss (torch.Tensor): The calculated loss.
+        target (torch.Tensor): The target tensor.
+    
+    Returns:
+        tuple: A tuple containing the modified loss and mask tensors.
+    """
+    mask = torch.ones_like(loss)
+    for c in exclude_classes:
+        loss[target == c] = 0
+        mask[target == c] = 0
+    return loss, mask
+
+
 class ExcludeClassLossWrapper(nn.Module):
     """A loss wrapper that excludes specified classes from the loss calculation.
 
@@ -101,10 +121,76 @@ class ExcludeClassLossWrapper(nn.Module):
         """
         # Calculate the loss only for included classes
         loss = self.loss_fn(pred, target)
-        mask = torch.ones_like(loss)
-        for c in self.exclude_class:
-            loss[target == c] = 0
-            mask[target == c] = 0
+        loss, mask = exclude_classes(self.exclude_class, loss, target)
+        return loss.sum() / mask.sum()
+
+
+class EMAInverseClassFrequencyLoss(nn.Module):
+    """A loss wrapper that uses exponential moving average (EMA) of the inverse class frequency
+    for loss weighting and excludes specified classes.
+
+    Args:
+        loss_fn (nn.Module): The base loss function.
+        exclude_class (int or list of ints): Classes to exclude from the loss calculation.
+        num_classes (int): Total number of classes in the dataset.
+        alpha (float): Smoothing factor for EMA, default is 0.99.
+    """
+    def __init__(
+        self, loss_fn: nn.Module, exclude_class: Union[int, list[int]], num_classes: int,
+        alpha: float = 0.99, class_weighting=False
+        ):
+        super().__init__()
+        self.loss_fn = loss_fn
+        self.exclude_class = exclude_class
+        self.num_classes = num_classes
+        self.alpha = alpha
+        # Initialize EMA frequencies with small non-zero values to avoid division by zero
+        self.ema_frequencies = torch.ones(num_classes) * 1e-6
+        self.class_weighting = class_weighting
+
+    def update_frequencies(self, target: torch.Tensor):
+        """Update EMA frequencies based on the target tensor.
+
+        Args:
+            target (torch.Tensor): The target tensor containing class labels.
+        """
+        with torch.no_grad():
+            class_counts = torch.bincount(target.flatten(), minlength=self.num_classes).float().cpu()
+            self.ema_frequencies = self.alpha * self.ema_frequencies + (1 - self.alpha) * class_counts
+
+    def calculate_weights(self):
+        """Calculate inverse class frequency weights from EMA frequencies.
+
+        Returns:
+            torch.Tensor: The weights for each class.
+        """
+        inverse_frequencies = 1.0 / (self.ema_frequencies + 1e-6)
+        return inverse_frequencies / inverse_frequencies.sum()  # Normalize weights
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Calculate the weighted loss, excluding specified classes.
+
+        Args:
+            pred (torch.Tensor): The predicted tensor.
+            target (torch.Tensor): The target tensor.
+
+        Returns:
+            torch.Tensor: The calculated loss.
+        """
+        if self.class_weighting:
+            # Update EMA frequencies with the current target
+            self.update_frequencies(target)
+
+            # Calculate class weights
+            weights = self.calculate_weights()
+            for c in self.exclude_class:
+                weights[c] = 0
+            
+            self.loss_fn.weight = weights.to(pred.device).softmax(dim=0)
+
+        # Apply weights to loss
+        loss = self.loss_fn(pred, target)
+        loss, mask = exclude_classes(self.exclude_class, loss, target)
         return loss.sum() / mask.sum()
 
 
