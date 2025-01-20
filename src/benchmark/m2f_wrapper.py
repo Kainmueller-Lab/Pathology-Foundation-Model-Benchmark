@@ -94,7 +94,7 @@ class M2FSegmentationModel(torch.nn.Module):
 
         state_dict = torch.hub.load_state_dict_from_url(head_checkpoint_url, map_location="cpu")
         print(f"Using head_checkpoint_url: {head_checkpoint_url}")
-        
+
         #runner.load_checkpoint(self.model, head_checkpoint_url, map_location="CPU")
         # This doesn't work because of map_location, but okay bc uses torch.load in backend
         # decode_head cannot be loaded because the num_classes might change
@@ -110,7 +110,6 @@ class M2FSegmentationModel(torch.nn.Module):
             # model_name in ("dinov2_vits14", "dinov2_vitb14", "dinov2_vitl14", "dinov2_vitg14"):
             backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=model_name)
             transform = None
-
         else:
             backbone_model, transform, model_dim = load_model_and_transform(model_name)
         print(f'Backbone model {model_name} loaded with dims {model_dim}')

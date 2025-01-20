@@ -146,7 +146,7 @@ model = dict(
         input_transform='resize_concat',
         channels=1536,
         dropout_ratio=0,
-        num_classes=7,
+        num_classes=8,
         norm_cfg=dict(type='SyncBN', requires_grad=True),
         align_corners=False,
         loss_decode=dict(type='CELoss', use_sigmoid=False, loss_weight=1.0)),
