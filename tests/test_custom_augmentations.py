@@ -12,7 +12,7 @@ def test_hed_normalize():
     assert hasattr(hed_normalize, "hed_t")
 
     # Test forward pass
-    batch = torch.rand(4, 3, 32, 32).cuda()
+    batch = torch.rand(4, 3, 32, 32)
     batch_aug = hed_normalize(batch)
     assert batch_aug.shape == batch.shape
     assert not torch.all(torch.eq(batch, batch_aug))
