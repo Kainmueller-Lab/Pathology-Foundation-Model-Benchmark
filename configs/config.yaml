@@ -39,3 +39,5 @@ loss_fn:
   params:
     label_smoothing: 0.05
   class_weighting: false
+
+  exclude_classes: [0]
