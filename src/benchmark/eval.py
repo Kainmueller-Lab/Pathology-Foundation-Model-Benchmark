@@ -175,18 +175,17 @@ class Eval:
         recall_scores = {}
         f1_scores = {}
         accuracy_scores = {}
-
+        classwise_metrics = {}
         for cls in unique_classes:
             class_name = self.label_dict[cls]
             precision_scores[class_name] = precision(y_true, y_pred, class_id=cls)
             recall_scores[class_name] = recall(y_true, y_pred, class_id=cls)
             f1_scores[class_name] = f1_score_class(y_true, y_pred, class_id=cls)
             accuracy_scores[class_name] = accuracy(y_true, y_pred, class_id=cls)
-
-        metrics["precision_per_class"] = precision_scores
-        metrics["recall_per_class"] = recall_scores
-        metrics["f1_score_per_class"] = f1_scores
-        metrics["accuracy_per_class"] = accuracy_scores
+            classwise_metrics[f"{class_name}/precision"] = precision_scores[class_name]
+            classwise_metrics[f"{class_name}/recall"] = recall_scores[class_name]
+            classwise_metrics[f"{class_name}/f1_score"] = f1_scores[class_name]
+            classwise_metrics[f"{class_name}/accuracy"] = accuracy_scores[class_name]
 
         # Calculate macro averages
         metrics["precision_macro"] = np.mean(list(precision_scores.values()))
@@ -200,20 +199,22 @@ class Eval:
         metrics["f1_score_micro"] = f1_score_class(y_true, y_pred, class_id=None)
         metrics["accuracy_micro"] = accuracy(y_true, y_pred, class_id=None)
 
-        # Calculate confusion matrix
-        labels = [self.label_dict[cls] for cls in unique_classes]
-        conf_mat = confusion_matrix_func(y_true, y_pred, labels=unique_classes)
-        # rename index and columns
-        metrics["confusion_matrix"] = pd.DataFrame(
-            conf_mat,
-            index=labels,
-            columns=labels
-        )
+        # # Calculate confusion matrix
+        # labels = [self.label_dict[cls] for cls in unique_classes]
+        # conf_mat = confusion_matrix_func(y_true, y_pred, labels=unique_classes)
+        # # rename index and columns
+        # metrics["confusion_matrix"] = pd.DataFrame(
+        #     conf_mat,
+        #     index=labels,
+        #     columns=labels
+        # )
 
         if self.save_dir:
             # save metrics to csv and exclude all per class metrics before
             cols = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
                     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
-            metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])    
+            metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])
+            classwise_metrics = pd.DataFrame(classwise_metrics, index=[0])
+            metrics_df = pd.concat([metrics_df, classwise_metrics], axis=1)
             metrics_df.to_csv(os.path.join(self.save_dir, self.fname), index=False)
-        return metrics
+        return metrics, classwise_metrics

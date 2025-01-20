@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: titan_linear_1
+experiment: uni_linear_1
 experiment_path: experiments
 training_steps: 20
 log_interval: 10
@@ -14,11 +14,11 @@ dataset:
   split: tests/test_data/small_lizard_train_test_val_split.csv
   label_dict: tests/test_data/label_dict.json
   batch_size: 2
-  num_workers: 0
 
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: titan
+  backbone: UNI
+  unfreeze_backbone: false
   img_size: 224
 
 optimizer:
@@ -38,3 +38,7 @@ loss_fn:
   name: CrossEntropyLoss
   params:
     label_smoothing: 0.05
+    reduction: none
+  class_weighting: false
+
+  exclude_classes: [0]
