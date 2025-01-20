@@ -63,6 +63,7 @@ def train(cfg):
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
             dir=cfg.writer_dir,
+            mode=cfg.get('wandb_mode', 'online'),
             )
     else:
         logging = False
