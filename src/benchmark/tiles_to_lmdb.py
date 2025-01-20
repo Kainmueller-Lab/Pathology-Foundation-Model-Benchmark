@@ -79,20 +79,23 @@ if __name__ == "__main__":
     parser.add_argument(
         "--local_path",
         type=str,
-        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/original_data/",
+        # default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/original_data/",
+        default="/home/fabian/raid5/schuerch_dataset/preprocessed/full",
         help="Local path to the dataset.",
     )
     parser.add_argument(
         "--output_path",
         type=str,
-        default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/lizard_lmdb",
+        # default="~/projects/lab_hackathon_2024/Bio-Image-Datasets/downloads/lizard_dataset/lizard_lmdb",
+        default="/home/fabian/raid5/schuerch_dataset/schuerch_dataset_lmdb/lmdb",
         help="Output path for LMDB files.",
     )
     parser.add_argument("--tile_size", type=int, default=224, help="Tile size (default: 224).")
     parser.add_argument(
         "--dataset",
         type=str,
-        default="lizard",
+        # default="lizard",
+        default="schuerch",
         choices=["lizard", "pannuke", "consep", "schuerch", "segpath"],
         help="Dataset to use. Options are: lizard, pannuke, consep, schuerch, segpath.",
     )

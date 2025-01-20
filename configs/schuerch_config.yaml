@@ -1,7 +1,7 @@
 project: patho_benchmark
-experiment: provgigapath_schuerch_linear_zero_mask_1
+experiment: provgigapath_schuerch_linear_zero_mask_2
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
-training_steps: 60000
+training_steps: 30000
 log_interval: 1000
 val_interval: 1000
 multiprocessing: true
@@ -17,7 +17,8 @@ dataset:
 
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: provgigapath
+  backbone: UNI
+  unfreeze_backbone: false
 
 optimizer:
   name: AdamW
@@ -29,7 +30,7 @@ optimizer:
 scheduler:
   name: CosineAnnealingLR
   params:
-    T_max: 60000
+    T_max: 30000
     eta_min: 1e-6
 
 loss_fn:
@@ -37,4 +38,6 @@ loss_fn:
   params:
     label_smoothing: 0.05
     reduction: none
+  class_weighting: true
+
   exclude_classes: [0]
