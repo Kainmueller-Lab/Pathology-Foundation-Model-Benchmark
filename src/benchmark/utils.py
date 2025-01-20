@@ -6,7 +6,7 @@ import json
 import torch
 import torch.nn as nn
 from typing import Union
-
+import matplotlib.pyplot as plt
 
 def get_height_width(array):
     """Get the height and width of the input array.
@@ -108,13 +108,11 @@ class ExcludeClassLossWrapper(nn.Module):
         return loss.sum() / mask.sum()
 
 
-def render_segmentation(segmentation_logits, dataset):
-    raise NotImplementedError
-    # TODO: Define colormaps
+def render_segmentation(segmentation_classes, num_classes=None):
+    seg_img = np.zeros((segmentation_classes.shape[0], segmentation_classes.shape[1], 4))
+    cmap = plt.get_cmap('hot')
+    for i in range(num_classes):
+        idxs = segmentation_classes == i
+        seg_img[idxs] = cmap(i / num_classes)
 
-    DATASET_COLORMAPS = None
-
-    colormap = DATASET_COLORMAPS[dataset]
-    colormap_array = np.array(colormap, dtype=np.uint8)
-    segmentation_values = colormap_array[segmentation_logits + 1]
-    return Image.fromarray(segmentation_values)
+    return seg_img

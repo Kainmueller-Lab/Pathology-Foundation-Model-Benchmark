@@ -17,7 +17,7 @@ class BNHead(BaseDecodeHead):
     def __init__(self, resize_factors=None, **kwargs):
         super().__init__(**kwargs)
         assert self.in_channels == self.channels
-        print("self.in_channels", self.in_channels, self.channels)
+        #print("self.in_channels", self.in_channels, self.channels)
         self.bn = nn.SyncBatchNorm(self.in_channels)
         self.resize_factors = resize_factors
 
@@ -32,14 +32,12 @@ class BNHead(BaseDecodeHead):
             feats (Tensor): A tensor of shape (batch_size, self.channels,
                 H, W) which is feature map for last layer of decoder head.
         """
-        print("inputs", [i.shape for i in inputs])
+        #print("inputs", [i.shape for i in inputs])
         x = self._transform_inputs(inputs)
-        print("fwd_feat x", x.shape)
         if with_bn:
             feats = self.bn(x)
         else:
             feats = x
-        # print("feats", feats.shape)
         return feats
 
     def _transform_inputs(self, inputs):
@@ -88,7 +86,18 @@ class BNHead(BaseDecodeHead):
 
     def forward(self, inputs):
         """Forward function."""
-        output = self._forward_feature(inputs)
-        print("Head output", output.shape)
-        output = self.cls_seg(output)
+        features = self._forward_feature(inputs)
+        # features shape b, hidden_dim * scales, h, w
+        #print("Head output", features.shape)
+        hidden_dim = self.channels
+
+        # TODO: single linear layer to match hidden dim
+        for i in range(int(features.shape[1]/hidden_dim)):
+            features_scale = features[:, i*hidden_dim:(i+1)*hidden_dim, :, :]
+            if i == 0:
+                output = self.cls_seg(features_scale)
+            else:
+                output += self.cls_seg(features_scale)
+
+        #print(f'BNHead fwd output.shape {output.shape}')
         return output

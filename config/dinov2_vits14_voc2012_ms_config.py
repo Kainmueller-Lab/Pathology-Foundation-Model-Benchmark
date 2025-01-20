@@ -1,29 +1,13 @@
-dataset_type = 'PascalVOCDataset'
-data_root = '/checkpoint/dino/datasets/VOC2012'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-crop_size = (640, 640)
-train_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
-    dict(type='Resize', img_scale=(99999999, 640), ratio_range=(1.0, 3.0)),
-    dict(type='RandomCrop', crop_size=(640, 640), cat_max_ratio=0.75),
-    dict(type='RandomFlip', prob=0.5),
-    dict(type='PhotoMetricDistortion'),
-    dict(
-        type='Normalize',
-        mean=[123.675, 116.28, 103.53],
-        std=[58.395, 57.12, 57.375],
-        to_rgb=True),
-    dict(type='Pad', size=(640, 640), pad_val=0, seg_pad_val=255),
-    dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg'])
-]
+crop_size = (224, 224)
+img_channels = 3
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
         img_scale=(99999999, 640),
+        flip_direction=['horizontal', 'vertical'],
         img_ratios=[1.0, 1.32, 1.73, 2.28, 3.0],
         flip=True,
         transforms=[
@@ -107,6 +91,7 @@ data = dict(
                 img_scale=(99999999, 640),
                 img_ratios=[1.0, 1.32, 1.73, 2.28, 3.0],
                 flip=True,
+                flip_direction='horizontal',
                 transforms=[
                     dict(type='Resize', keep_ratio=True),
                     dict(type='RandomFlip'),
@@ -161,11 +146,10 @@ model = dict(
         input_transform='resize_concat',
         channels=1536,
         dropout_ratio=0,
-        num_classes=21,
+        num_classes=7,
         norm_cfg=dict(type='SyncBN', requires_grad=True),
         align_corners=False,
-        loss_decode=dict(
-            type='CELoss', use_sigmoid=False, loss_weight=1.0)),
+        loss_decode=dict(type='CELoss', use_sigmoid=False, loss_weight=1.0)),
     test_cfg=dict(mode='whole', crop_size=(640, 640), stride=(320, 320)))
 auto_resume = True
 gpu_ids = range(0, 8)

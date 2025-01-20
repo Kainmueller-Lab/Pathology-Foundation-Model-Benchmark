@@ -42,15 +42,13 @@ class EncoderDecoderMask2Former(BaseModule):
             self.neck = builder.build_neck(neck)
         else:
             self.neck = None
-        #decode_head.update(init_cfg=test_cfg)
-        #decode_head.update(test_cfg=test_cfg)
+        print(f"----- The system has a neck: {neck is not None}")
+
         self._init_decode_head(decode_head)
         self._init_auxiliary_head(auxiliary_head)
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-
-        #assert self.with_decode_head
 
     def _init_decode_head(self, decode_head):
         """Initialize ``decode_head``"""
@@ -70,35 +68,37 @@ class EncoderDecoderMask2Former(BaseModule):
 
     def extract_feat(self, img):
         """Extract features from images."""
-        print('extract_feat', img.shape)
+        #print('b4 extract_feat:', img.shape, self.backbone)
         x = self.backbone(img)
+        # neck is usually none
         if self.neck is not None:
             x = self.neck(x)
-        print('post extract_feat', [el.shape for el in x])
+        #print('post extract_feat:', [el.shape for el in x])
+        # produces a list of features, one for each scale
 
         return x
 
-    def encode_decode(self, img, img_metas):
+    def encode_decode(self, img):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         x = self.extract_feat(img)
-        out = self._decode_head_forward_test(x, img_metas)
+        out = self._decode_head_forward_test(x)
         out = resize(input=out, size=img.shape[2:], mode="bilinear", align_corners=self.align_corners)
         return out
 
-    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg, **kwargs):
+    def _decode_head_forward_train(self, x, gt_semantic_seg, **kwargs):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
-        loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg, **kwargs)
+        loss_decode = self.decode_head.forward_train(x, gt_semantic_seg, **kwargs)
 
         losses.update(add_prefix(loss_decode, "decode"))
         return losses
 
-    def _decode_head_forward_test(self, x, img_metas):
+    def _decode_head_forward_test(self, x):
         """Run forward function and calculate loss for decode head in
         inference."""
-        seg_logits = self.decode_head(x) #img_metas, self.test_cfg)
+        seg_logits = self.decode_head(x)
         return seg_logits
 
     def _auxiliary_head_forward_train(self, x, img_metas, gt_semantic_seg):
@@ -117,7 +117,7 @@ class EncoderDecoderMask2Former(BaseModule):
 
     def forward_dummy(self, img):
         """Dummy forward function."""
-        seg_logit = self.encode_decode(img, None)
+        seg_logit = self.encode_decode(img)
 
         return seg_logit
 
@@ -175,7 +175,7 @@ class EncoderDecoderMask2Former(BaseModule):
                 y1 = max(y2 - h_crop, 0)
                 x1 = max(x2 - w_crop, 0)
                 crop_img = img[:, :, y1:y2, x1:x2]
-                crop_seg_logit = self.encode_decode(crop_img, img_meta)
+                crop_seg_logit = self.encode_decode(crop_img)
                 preds += F.pad(crop_seg_logit, (int(x1), int(preds.shape[3] - x2), int(y1), int(preds.shape[2] - y2)))
 
                 count_mat[:, :, y1:y2, x1:x2] += 1
@@ -196,8 +196,9 @@ class EncoderDecoderMask2Former(BaseModule):
 
     def whole_inference(self, img, img_meta, rescale):
         """Inference with full image."""
-
-        seg_logit = self.encode_decode(img, img_meta)
+        #print('0whole inf', img.shape, img_meta, flush=True)
+        seg_logit = self.encode_decode(img)
+        #print('1whole inf', seg_logit.shape)
         if rescale:
             # support dynamic shape for onnx
             if torch.onnx.is_in_onnx_export():
@@ -223,7 +224,6 @@ class EncoderDecoderMask2Former(BaseModule):
         Returns:
             Tensor: The output segmentation map.
         """
-
         assert self.test_cfg.mode in ["slide", "whole"]
         ori_shape = img_meta[0]["ori_shape"]
         assert all(_["ori_shape"] == ori_shape for _ in img_meta)
