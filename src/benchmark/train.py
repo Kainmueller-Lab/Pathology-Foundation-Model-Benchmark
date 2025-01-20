@@ -186,13 +186,14 @@ def train(cfg):
                             checkpoint_path, f"best_model.pth"
                         )
                         torch.save(model.state_dict(), model_path)
+                        best_checkpoint_step = step
     if hasattr(cfg, "primary_metric"):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
         logging_dict, classwise_dict = evaluater.compute_metrics(model, test_dataloader, device)
     if logging:
-        logging_dict = {k: v for k, v in logging_dict.items()}
+        logging_dict["best_checkpoint_step"] = best_checkpoint_step
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
         classwise_dict = {k+"_test": v for k, v in classwise_dict.items()}
         wandb.log(logging_dict)
