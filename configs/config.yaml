@@ -38,4 +38,7 @@ loss_fn:
   name: CrossEntropyLoss
   params:
     label_smoothing: 0.05
+    reduction: none
   class_weighting: false
+
+  exclude_classes: [0]
