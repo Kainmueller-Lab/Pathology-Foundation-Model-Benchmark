@@ -52,3 +52,6 @@ loss_fn:
       - degrees: [0, 360]
         p: 0.5
         resample: NEAREST
+    HEDNormalize:
+      - sigma: 0.05
+        bias: 0.1
