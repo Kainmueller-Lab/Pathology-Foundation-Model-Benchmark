@@ -74,6 +74,26 @@ def prep_datasets(cfg):
     return tuple(datasets)
 
 
+def exclude_classes(
+        exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Exclude specified classes from the loss calculation.
+
+    Args:
+        exclude_classes (int or list of ints): Classes to exclude from the loss calculation.
+        loss (torch.Tensor): The calculated loss.
+        target (torch.Tensor): The target tensor.
+    
+    Returns:
+        tuple: A tuple containing the modified loss and mask tensors.
+    """
+    mask = torch.ones_like(loss)
+    for c in exclude_classes:
+        loss[target == c] = 0
+        mask[target == c] = 0
+    return loss, mask
+
+
 class ExcludeClassLossWrapper(nn.Module):
     """A loss wrapper that excludes specified classes from the loss calculation.
 
@@ -101,11 +121,7 @@ class ExcludeClassLossWrapper(nn.Module):
         """
         # Calculate the loss only for included classes
         loss = self.loss_fn(pred, target)
-        mask = torch.ones_like(loss)
-        if self.exclude_class is not None:
-            for c in self.exclude_class:
-                loss[target == c] = 0
-                mask[target == c] = 0
+        loss, mask = exclude_classes(self.exclude_class, loss, target)
         return loss.sum() / mask.sum()
 
 
@@ -174,9 +190,5 @@ class EMAInverseClassFrequencyLoss(nn.Module):
 
         # Apply weights to loss
         loss = self.loss_fn(pred, target)
-        mask = torch.ones_like(loss)
-        if self.exclude_class is not None:
-            for c in self.exclude_class:
-                loss[target == c] = 0
-                mask[target == c] = 0
+        loss, mask = exclude_classes(self.exclude_class, loss, target)
         return loss.sum() / mask.sum()
