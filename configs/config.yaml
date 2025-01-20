@@ -42,3 +42,13 @@ loss_fn:
   class_weighting: false
 
   exclude_classes: [0]
+
+  augmentations:
+    RandomHorizontalFlip:
+      p: 0.5
+    RandomVerticalFlip:
+      p: 0.5
+    RandomRotation:
+      - degrees: [0, 360]
+        p: 0.5
+        resample: NEAREST
