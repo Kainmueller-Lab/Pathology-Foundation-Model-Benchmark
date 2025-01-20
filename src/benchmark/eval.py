@@ -214,7 +214,7 @@ class Eval:
             cols = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
                     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
             metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])
-            classwise_metrics = pd.DataFrame(classwise_metrics, index=[0])
-            metrics_df = pd.concat([metrics_df, classwise_metrics], axis=1)
+            classwise_metrics_df = pd.DataFrame(classwise_metrics, index=[0])
+            metrics_df = pd.concat([metrics_df, classwise_metrics_df], axis=1)
             metrics_df.to_csv(os.path.join(self.save_dir, self.fname), index=False)
         return metrics, classwise_metrics

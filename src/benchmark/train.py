@@ -63,6 +63,7 @@ def train(cfg):
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
             dir=cfg.writer_dir,
+            mode=cfg.get('wandb_mode', 'online'),
             )
     else:
         logging = False
@@ -204,7 +205,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)
