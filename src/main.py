@@ -3,12 +3,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from benchmark.m2f_wrapper import BACKBONE_ARCHS
 
 from torchmetrics.classification import MulticlassJaccardIndex
 
 from backbones import encoder_decoder_m2f
-from benchmark.m2f_wrapper import M2FSegmentationModel
+from benchmark.m2f_wrapper import M2FSegmentationModel, BACKBONE_ARCHS
 from bio_image_datasets.lizard_dataset import LizardDataset
 from bio_image_datasets.pannuke import PanNukeDataset
 from bio_image_datasets.consep_dataset import ConSePDataset

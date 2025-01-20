@@ -21,7 +21,7 @@ urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.i
 urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 dependencies = [
-    "torch=2.0.*",
+    "torch==2.0.*",
     "scikit-image",
     "tqdm",
     "numpy",
@@ -34,7 +34,7 @@ dependencies = [
     "einops_exts",
     'fastremap',
     'h5py',
-    "mmcv=2.2.*",
+    "mmcv==2.2.*",
     "mmseg",
     "torchmetrics",
     'huggingface_hub',
