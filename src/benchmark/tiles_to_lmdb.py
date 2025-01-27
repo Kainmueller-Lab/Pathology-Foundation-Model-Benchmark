@@ -6,8 +6,10 @@ import argparse
 
 from tqdm import tqdm
 import numpy as np
+
 from benchmark.split_to_tiles import transform_to_tiles
 
+from bio_image_datasets.arctique_dataset import ArctiqueDataset
 from bio_image_datasets.lizard_dataset import LizardDataset
 from bio_image_datasets.pannuke_dataset import PanNukeDataset
 from bio_image_datasets.consep_dataset import ConSePDataset
@@ -96,8 +98,8 @@ if __name__ == "__main__":
         type=str,
         # default="lizard",
         default="schuerch",
-        choices=["lizard", "pannuke", "consep", "schuerch", "segpath"],
-        help="Dataset to use. Options are: lizard, pannuke, consep, schuerch, segpath.",
+        choices=["arctique", "consep", "lizard", "pannuke", "schuerch", "segpath"],
+        help="Dataset to use. Options are: arctique, consep, lizard, pannuke, schuerch, segpath.",
     )
     parser.add_argument(
         "--map_size",
@@ -117,9 +119,10 @@ if __name__ == "__main__":
 
     # Map dataset names to classes
     dataset_mapping = {
+        "arctique": ArctiqueDataset,
+        "consep": ConSePDataset,
         "lizard": LizardDataset,
         "pannuke": PanNukeDataset,
-        "consep": ConSePDataset,
         "schuerch": SchuerchDataset,
         "segpath": SegPath,
     }
