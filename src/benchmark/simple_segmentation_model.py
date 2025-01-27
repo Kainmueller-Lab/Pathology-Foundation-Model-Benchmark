@@ -20,17 +20,8 @@ dotenv_path = Path(__file__).parents[2] / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-model_urls = {
-    "provgigapath": "prov-gigapath/prov-gigapath",
-    "phikonv2": "owkin/phikon-v2",
-    "virchow2": "paige-ai/Virchow2",
-    "uni": "MahmoodLab/UNI",
-    "uni2": "MahmoodLab/UNI2-h",
-    "titan": "MahmoodLab/TITAN",
-}
-
-cfg = OmegaConf.load("configs/config.yaml")
-img_size = cfg.model.img_size
+train_cfg = OmegaConf.load("configs/config.yaml")
+img_size = train_cfg.model.img_size
 
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
@@ -122,78 +113,82 @@ def load_model_and_transform(model_name):
             requirements.
         model_dim (int): The dimensionality of the model's output features.
     """
-    if model_name in model_urls.keys():
-        login(token=HF_TOKEN)
     if clean_str(model_name) == "provgigapath":
-        patch_size = 16  # TODO: put in model config
-        model = timm.create_model(f"hf_hub:{model_urls['provgigapath']}", pretrained=True)
+        login(token=HF_TOKEN)
+        model_cfg = OmegaConf.load("configs/models/provgigapath.yaml")
+        model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "phikonv2":
+        login(token=HF_TOKEN)
          # TODO: fix error
-        patch_size = 16  # TODO: put in model config
-        model = AutoModel.from_pretrained(model_urls["phikonv2"])
+        model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
+        model = AutoModel.from_pretrained(f"hf_hub:{model_cfg.url}")
         model.forward_patches = (
             lambda x: model(x)
             .last_hidden_state[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = AutoImageProcessor.from_pretrained(model_urls["phikonv2"])
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "virchow2":
-        patch_size = 14 # TODO: put in model config
-        model = timm.create_model(f"hf-hub:{model_urls['virchow2']}", pretrained=True, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU,)
+        login(token=HF_TOKEN)
+        model_cfg = OmegaConf.load("configs/models/virchow2.yaml")
+        model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU,)
         # start from index 5 of last_hidden_state since first token is CLS, token 1-4 are registers
         model.forward_patches = (
-            lambda x: model(x)[:, 5:, :].reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1).permute(0, 3, 1, 2)
+            lambda x: model(x)[:, 5:, :].reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1).permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "uni":
-        patch_size = 16 # TODO: put in model config
-        model = timm.create_model(f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True)
+        login(token=HF_TOKEN)
+        model_cfg = OmegaConf.load("configs/models/uni.yaml")
+        model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained, init_values=model_cfg.init_values, dynamic_img_size=model_cfg.dynamic_img_size)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)   
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "uni2":
-        patch_size = 14 # TODO: put in model config
-        timm_kwargs = { # TODO: put in model config
-            'img_size': img_size, 
-            'patch_size': patch_size, 
-            'depth': 24,
-            'num_heads': 24,
-            'init_values': 1e-5, 
-            'embed_dim': 1536,
-            'mlp_ratio': 2.66667*2,
-            'num_classes': 0, 
-            'no_embed_class': True,
-            'mlp_layer': timm.layers.SwiGLUPacked, 
-            'act_layer': torch.nn.SiLU, 
-            'reg_tokens': 8, 
-            'dynamic_img_size': True
-        }
-        model = timm.create_model(f"hf-hub:{model_urls['uni2']}", pretrained=True, **timm_kwargs)
-        # start from index 9 since first token is CLS, token 1-8 are registers
+        login(token=HF_TOKEN)
+        model_cfg = OmegaConf.load("configs/models/uni2.yaml")
+        model = timm.create_model(
+            f"hf_hub:{model_cfg.url}", 
+            pretrained=model_cfg.pretrained,
+            img_size=img_size,
+            patch_size=model_cfg.patch_size,
+            depth=model_cfg.depth,
+            num_heads=model_cfg.num_heads,
+            init_values=model_cfg.init_values,
+            embed_dim=model_cfg.embed_dim,
+            mlp_ratio=model_cfg.mlp_ratio,
+            num_classes=model_cfg.num_classes,
+            no_embed_class=model_cfg.no_embed_class,
+            mlp_layer=SwiGLUPacked,
+            act_layer=torch.nn.SiLU,
+            reg_tokens=model_cfg.reg_tokens,
+            dynamic_img_size=model_cfg.dynamic_img_size,
+        )
         model.forward_patches = (
-            lambda x: model.forward_features(x)[:, 9:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            lambda x: model.forward_features(x)[:, model_cfg.reg_tokens+1:, :]
+            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "titan":
-        patch_size = 16
-        titan = AutoModel.from_pretrained(model_urls["titan"], trust_remote_code=True)
+        login(token=HF_TOKEN)
+        model_cfg = OmegaConf.load("configs/models/titan.yaml")
+        titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
         model, _ = titan.return_conch()
         transform = transforms.Compose([
             transforms.Resize(img_size, interpolation=transforms.InterpolationMode.BILINEAR),
@@ -203,7 +198,7 @@ def load_model_and_transform(model_name):
         ])        
         model.forward_patches = (
             lambda x: model._modules["trunk"].forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         model_dim = get_model_dim(model)

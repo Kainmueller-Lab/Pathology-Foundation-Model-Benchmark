@@ -1,0 +1,3 @@
+url: "prov-gigapath/prov-gigapath"
+patch_size: 16
+pretrained: True
