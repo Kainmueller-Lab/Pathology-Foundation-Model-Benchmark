@@ -1,6 +1,6 @@
 project: patho_benchmark
 experiment: uni_frozen_lizard_linear_class_weighting_2_fabi
-experiment_path: /fast/AG_Kainmueller/jrumber/PhD/patho_benchmark/experiments
+experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
 val_interval: 1000
