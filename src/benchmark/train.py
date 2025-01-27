@@ -145,7 +145,8 @@ def train(cfg):
                         "lr": optimizer.param_groups[0]["lr"],
                     }, step=step)
                 print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
-            if step % cfg.log_interval == 0:
+            # log at cfg.log_interval or at the end of training
+            if (step % cfg.log_interval == 0) or (step == cfg.training_steps-1):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
