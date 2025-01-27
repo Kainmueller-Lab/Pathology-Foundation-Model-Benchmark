@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: provgigapath_schuerch_linear_zero_mask_2
+experiment: uni_schuerch_linear_zero_mask_2
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
