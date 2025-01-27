@@ -127,7 +127,6 @@ def train(cfg):
             img = sample_dict["image"].float()
             semantic_mask = sample_dict["semantic_mask"]
             instance_mask = sample_dict.get("instance_mask", None)
-            step += 1
             img = img.to(device)
             semantic_mask = semantic_mask.to(device)
             with torch.autocast(device_type=device.type, dtype=torch.float16):
@@ -188,6 +187,8 @@ def train(cfg):
                         )
                         torch.save(model.state_dict(), model_path)
                         best_checkpoint_step = step
+            step += 1
+
     if hasattr(cfg, "primary_metric"):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
