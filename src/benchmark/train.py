@@ -127,7 +127,6 @@ def train(cfg):
             img = sample_dict["image"].float()
             semantic_mask = sample_dict["semantic_mask"]
             instance_mask = sample_dict.get("instance_mask", None)
-            step += 1
             img = img.to(device)
             semantic_mask = semantic_mask.to(device)
             with torch.autocast(device_type=device.type, dtype=torch.float16):
@@ -146,7 +145,8 @@ def train(cfg):
                         "lr": optimizer.param_groups[0]["lr"],
                     }, step=step)
                 print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
-            if step % cfg.log_interval == 0:
+            # log at cfg.log_interval or at the end of training
+            if (step % cfg.log_interval == 0) or (step == cfg.training_steps-1):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
@@ -188,6 +188,8 @@ def train(cfg):
                         )
                         torch.save(model.state_dict(), model_path)
                         best_checkpoint_step = step
+            step += 1
+
     if hasattr(cfg, "primary_metric"):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
@@ -205,7 +207,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)
