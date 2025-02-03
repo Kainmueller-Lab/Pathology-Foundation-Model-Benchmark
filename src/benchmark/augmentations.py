@@ -1,7 +1,10 @@
 import kornia.augmentation as Kaug
 from benchmark import custom_augmentations as Caug
+from omegaconf import DictConfig, ListConfig
 import warnings
-warnings.simplefilter('once', UserWarning)  # Set this at the script start
+import torch
+
+warnings.simplefilter("once", UserWarning)  # Set this at the script start
 
 
 def get_augmentation(name, **kwargs):
@@ -19,8 +22,8 @@ def get_augmentation(name, **kwargs):
 
 
 class Augmenter(Kaug.AugmentationSequential):
-    """Augmenter class to apply augmentations to a batch of samples.
-    """
+    """Augmenter class to apply augmentations to a batch of samples."""
+
     def __init__(self, params, **kwargs):
         """Initializes the Augmenter class.
         Args:
@@ -37,11 +40,20 @@ class Augmenter(Kaug.AugmentationSequential):
         super(Augmenter, self).__init__(*self.transforms, **kwargs)
 
     def define_augmentations(self):
-        """Creates the transformations based on names and values in params.
-        """
-        # creates the transformations based on names and values in params
+        """Creates the transformations based on names and values in params."""
         transforms = []
         for name, kwargs in self.params.items():
+            if isinstance(kwargs, (DictConfig, ListConfig)):
+                kwargs = dict(kwargs)
+                # Convert lists to tensors for specific parameters
+                if name == 'RandomElasticTransform':
+                    for k in ['kernel_size', 'sigma', 'alpha']:
+                        if k in kwargs and isinstance(kwargs[k], (list, ListConfig)):
+                            kwargs[k] = torch.tensor(list(kwargs[k]))
+                # Convert other ListConfig values
+                for k, v in kwargs.items():
+                    if isinstance(v, (DictConfig, ListConfig)):
+                        kwargs[k] = list(v) if isinstance(v, ListConfig) else dict(v)
             transforms.append(get_augmentation(name, **kwargs))
         return transforms
 
