@@ -1,0 +1,3 @@
+crop_size: 14
+img_channels: 1536
+num_classes: 2
