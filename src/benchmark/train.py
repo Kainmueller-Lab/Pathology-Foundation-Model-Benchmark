@@ -140,6 +140,10 @@ def train(cfg):
             img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(
                 img, semantic_mask, instance_mask
             )
+            # augment_fn adds an extra dimension to the masks. Remove it, if it exists
+            # the extra dimension throws an error at the loss function
+            semantic_mask_aug = semantic_mask_aug.squeeze(1)  # Remove the extra dimension
+            instance_mask_aug = instance_mask_aug.squeeze(1)  # Remove the extra dimension
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 pred_mask = model(img_aug)
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
