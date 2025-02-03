@@ -1,0 +1,61 @@
+project: patho_benchmark
+experiment: provgigapath_arctique_normalized_aug_1
+experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
+training_steps: 30000
+log_interval: 1000
+val_interval: 1000
+multiprocessing: true
+num_workers: 4
+seed: 42
+primary_metric: f1_score_macro
+
+dataset:
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/arctique_lmdb/
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/train_test_val_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/label_dict.json
+  batch_size: 128
+
+model:
+  model_wrapper: SimpleSegmentationModel
+  backbone: provgigapath
+  unfreeze_backbone: false
+
+optimizer:
+  name: AdamW
+  params:
+    lr: 3e-5
+    weight_decay: 0.03
+  warmup_steps: 1000
+
+scheduler:
+  name: CosineAnnealingLR
+  params:
+    T_max: 30000
+    eta_min: 1e-6
+
+loss_fn:
+  name: CrossEntropyLoss
+  params:
+    label_smoothing: 0.05
+    reduction: none
+  class_weighting: true
+
+  exclude_classes: [0]
+
+augmentations:
+  RandomHorizontalFlip:
+    p: 0.5
+  RandomVerticalFlip:
+    p: 0.5
+  RandomAffine:
+    degrees: [0, 360]
+    translate: 0.1
+    scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
+    resample: BILINEAR
+  RandomElasticTransform:
+    kernel_size: [63, 63]
+    sigma: [32.0, 32.0]
+    alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
+  HEDNormalize:
+    sigma: 0.05
+    bias: 0.1
