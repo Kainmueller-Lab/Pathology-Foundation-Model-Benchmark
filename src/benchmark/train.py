@@ -44,7 +44,8 @@ def train(cfg):
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
-        augment_fn = lambda x: x
+        def augment_fn(img, mask, instance_mask):
+            return img, mask, instance_mask
     # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
     #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
