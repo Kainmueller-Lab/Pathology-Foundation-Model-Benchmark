@@ -128,14 +128,14 @@ def load_model_and_transform(model_name):
         login(token=HF_TOKEN)
          # TODO: fix error
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
-        model = AutoModel.from_pretrained(f"hf_hub:{model_cfg.url}")
+        model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
         model.forward_patches = (
-            lambda x: model(x)
+            lambda x: model(x.to(model.device))
             .last_hidden_state[:, 1:, :]
             .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
-        transform = AutoImageProcessor.from_pretrained(model_urls["phikonv2"])
+        transform = AutoImageProcessor.from_pretrained(model_cfg.url)
         model_dim = get_model_dim(model)
     elif clean_str(model_name) == "virchow2":
         login(token=HF_TOKEN)
@@ -192,7 +192,6 @@ def load_model_and_transform(model_name):
         model, _ = titan.return_conch()
         transform = transforms.Compose([
             transforms.Resize(img_size, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(img_size),
             MaybeToTensor(),
             transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
         ])        
@@ -206,7 +205,7 @@ def load_model_and_transform(model_name):
         # TODO: fix dependency issues
         patch_size = 16 # TODO: put in model config
         model = create_model("musk_large_patch16_384")
-        utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
+        # utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
         model.to(device="cuda", dtype=torch.float16)
         transform = transforms.Compose([
             # TODO: check if 384 is img size / input size
