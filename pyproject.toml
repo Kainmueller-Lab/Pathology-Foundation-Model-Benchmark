@@ -42,6 +42,7 @@ dependencies = [
     'scikit-learn',
     'python-dotenv',
     "Bio-Image-Datasets @ git+https://github.com/Kainmueller-Lab/Bio-Image-Datasets.git",
+    "musk @ git+https://github.com/lilab-stanford/MUSK"
 ]
 
 [[project.source]]

@@ -3,3 +3,4 @@ patch_size: 16
 pretrained: True
 init_values: 1e-5
 dynamic_img_size: True
+img_size: 224

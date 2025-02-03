@@ -6,7 +6,7 @@ from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
 from timm.layers import SwiGLUPacked
 from timm.data.transforms import MaybeToTensor
-# from musk import utils, modeling
+from musk import utils, modeling
 from timm.models import create_model
 from timm.data.constants import IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD, IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from huggingface_hub import login
@@ -21,7 +21,6 @@ load_dotenv(dotenv_path=dotenv_path)
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 train_cfg = OmegaConf.load("configs/config.yaml")
-img_size = train_cfg.model.img_size
 
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
@@ -119,52 +118,51 @@ def load_model_and_transform(model_name):
         model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "phikonv2":
         login(token=HF_TOKEN)
-         # TODO: fix error
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
         model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
         model.forward_patches = (
             lambda x: model(x.to(model.device))
             .last_hidden_state[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = AutoImageProcessor.from_pretrained(model_cfg.url)
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "virchow2":
         login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/virchow2.yaml")
         model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained, mlp_layer=SwiGLUPacked, act_layer=torch.nn.SiLU,)
         # start from index 5 of last_hidden_state since first token is CLS, token 1-4 are registers
         model.forward_patches = (
-            lambda x: model(x)[:, 5:, :].reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1).permute(0, 3, 1, 2)
+            lambda x: model(x)[:, 5:, :].reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1).permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "uni":
         login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/uni.yaml")
         model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained, init_values=model_cfg.init_values, dynamic_img_size=model_cfg.dynamic_img_size)
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)   
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "uni2":
         login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/uni2.yaml")
         model = timm.create_model(
             f"hf_hub:{model_cfg.url}", 
             pretrained=model_cfg.pretrained,
-            img_size=img_size,
+            img_size=model_cfg.img_size,
             patch_size=model_cfg.patch_size,
             depth=model_cfg.depth,
             num_heads=model_cfg.num_heads,
@@ -180,48 +178,45 @@ def load_model_and_transform(model_name):
         )
         model.forward_patches = (
             lambda x: model.forward_features(x)[:, model_cfg.reg_tokens+1:, :]
-            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "titan":
         login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/titan.yaml")
         titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
         model, _ = titan.return_conch()
         transform = transforms.Compose([
-            transforms.Resize(img_size, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize(model_cfg.img_size, interpolation=transforms.InterpolationMode.BILINEAR),
             MaybeToTensor(),
             transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)
         ])        
         model.forward_patches = (
             lambda x: model._modules["trunk"].forward_features(x)[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/model_cfg.patch_size), int(img_size/model_cfg.patch_size), -1)
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "musk":
-        # TODO: fix dependency issues
-        patch_size = 16 # TODO: put in model config
+        model_cfg = OmegaConf.load("configs/models/musk.yaml")
         model = create_model("musk_large_patch16_384")
-        # utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
-        model.to(device="cuda", dtype=torch.float16)
+        utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, 'model|module', '')
+        model.to(device="cuda", dtype=torch.float32)
         transform = transforms.Compose([
-            # TODO: check if 384 is img size / input size
-            transforms.Resize(384, interpolation=3, antialias=True),
-            transforms.CenterCrop((384, 384)),
+            transforms.Resize(model_cfg.img_size, interpolation=3, antialias=True),
+            transforms.CenterCrop((model_cfg.img_size, model_cfg.img_size)),
             MaybeToTensor(),
             transforms.Normalize(mean=IMAGENET_INCEPTION_MEAN, std=IMAGENET_INCEPTION_STD)
         ])
         
         model.forward_patches = (
-            lambda x: model(x)[0] 
-            .last_hidden_state[:, 1:, :]
-            .reshape(x.shape[0], int(img_size/patch_size), int(img_size/patch_size), -1)
+            lambda x: model(x.to(device="cuda", dtype=torch.float32), with_head=False, out_norm=False, ms_aug=False, return_global=False)[0][:, 1:, :] 
+            .reshape(x.shape[0], int(model_cfg.img_size/model_cfg.patch_size), int(model_cfg.img_size/model_cfg.patch_size), -1)
             .permute(0, 3, 1, 2)
         )
-        model_dim = get_model_dim(model)
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "mock":
         model = MockModel(1024)
         transform = lambda x: x
@@ -248,7 +243,7 @@ def clean_str(string):
     return string.replace(" ", "").replace("-", "").lower()
 
 
-def get_model_dim(model):
+def get_model_dim(model, img_size):
     """
     Get the dimensionality of the features output by the model.
 
