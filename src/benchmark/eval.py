@@ -217,3 +217,125 @@ class Eval:
             metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])    
             metrics_df.to_csv(os.path.join(self.save_dir, self.fname), index=False)
         return metrics
+
+
+class Inference:
+    '''
+    Class for saving all interesting outputs (for further analysis)
+    from a full model pass to a given Dataset, specifically for these
+    segmentation models. (Note: can be very memory-inefficient.)
+    '''
+    def __init__(
+        self, model, result_path, input_data=True,
+        label=True, prediction=True, embeddings=True, inferred_masks=True):
+        '''
+        Initializes the class and sets up which outputs to store.
+        '''
+        self.model = model  # e.g., an instance of SimpleSegmentationModel
+        self.store_input = input_data
+        self.store_label = label
+        self.store_prediction = prediction
+        self.store_embeddings = embeddings
+        self.store_inferred_masks = inferred_masks
+        self.softmax = torch.nn.Softmax(dim=1)
+
+        if self.store_embeddings:
+            if model.return_embeddings is False:
+                raise ValueError("Model must return embeddings to store them.")
+
+        self.result_path = result_path
+        os.makedirs(self.result_path, exist_ok=True)
+
+    @torch.no_grad()
+    def forward(self, images):
+        if self.model.return_embeddings:
+            segmentation_logits, embeddings = self.model(images)
+            embeddings = embeddings.cpu().numpy()
+        else:
+            segmentation_logits = self.model(images)
+            embeddings = None
+        segmentation_pred = self.softmax(segmentation_logits).cpu().numpy()
+        return segmentation_pred, embeddings
+
+    def predict_batch(self, images):
+        '''
+        Perform forward pass on a single batch and return a dictionary
+        of the stored items (input, label, embedding, prediction, etc.).
+
+        Expects batch = (images, labels) or a dict with keys 'image', 'label'.
+        Adapt as needed for your dataset structure.
+        '''
+        self.model.eval()
+        B, C, H, W = images.shape
+
+        # 2) forward pass
+        predictions, embeddings = self.forward(images)
+
+        # 3) optional post-processing (e.g. argmax for segmentation)
+        if self.store_inferred_masks: 
+            inferred_masks = predictions.argmax(dim=1)  # shape [B, H, W] or [B, p, p]
+        else:
+            inferred_masks = None
+
+        # 4) Build output dictionary
+        output_dict = {}
+        if self.store_input:
+            output_dict['input'] = images.cpu()
+        if self.store_prediction:
+            output_dict['prediction'] = predictions.cpu()
+        if self.store_embeddings and (embeddings is not None):
+            output_dict['embeddings'] = embeddings.cpu()
+        if self.store_inferred_masks and (inferred_masks is not None):
+            output_dict['inferred_masks'] = inferred_masks.cpu()
+
+        return output_dict
+
+    # def predict(self, dataloader):
+    #     '''
+    #     Predict and store outputs for the entire dataset or DataLoader.
+    #     This method saves the outputs to disk batch by batch.
+    #     '''
+    #     for idx, batch in enumerate(tqdm(data_loader, desc="Predicting")):
+    #         images, labels = ...
+    #         batch_out = self.predict_batch(batch)
+    #         save_path = os.path.join(self.result_path, f"batch_{idx}.pt")
+    #         torch.save(batch_out, save_path)
+
+
+def fetch_embeddings_and_patches(patch_embeddings, img, mask=None, patch_size=16):
+    """
+    reformates the patch embeddings and fetches the 
+    corresponding patches from the input and the mask
+
+    Args: 
+        patch_embeddings (Tensor): Embeddings from model (B, D, P_H, P_W), P_H: N horizontal patches
+        img (Tensor): The original image of shape (B, C, H, W)
+        mask (Tensor): The mask of shape (B, H, W)
+        patch_size (int): The patch size (default 16)
+
+    Returns:
+        patch_embeddings (Tensor): (B, num_patches, D)
+        patches_img (Tensor): (B, num_patches, C, patch_size, patch_size)
+        patches_mask (Tensor): (B, num_patches, 1, patch_size, patch_size)
+    """
+    patch_embeddings_flat = patch_embeddings.flatten(2, 3).transpose(1, 2)  # (B, P_H * P_W, D) 
+
+    # extract image patches
+    unfold = torch.nn.Unfold(kernel_size=patch_size, stride=patch_size)
+    unfolded_img = unfold(img)  # (B, C*patch_size*patch_size, P_H*P_W)
+    B, _, num_patches = unfolded_img.shape
+    patches_img = (
+        unfolded_img
+        .transpose(1, 2)  # (B, num_patches, C*patch_size*patch_size)
+        .reshape(B, num_patches, img.shape[1], patch_size, patch_size))
+
+    # extract patched masks
+    if mask is not None:
+        mask = mask.unsqueeze(1)
+        unfolded_mask = unfold(mask)  # (B, 1*patch_size*patch_size, num_patches)
+        patches_mask = (unfolded_mask
+            .transpose(1, 2)
+            .reshape(B, num_patches, 1, patch_size, patch_size))
+        return patch_embeddings_flat, patches_img, patches_mask
+        
+    return patch_embeddings_flat, patches_img

@@ -27,7 +27,7 @@ model_urls = {
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
 
-    def __init__(self, model_name, num_classes):
+    def __init__(self, model_name, num_classes, return_embeddings=False):
         """
         Initialize the SimpleSegmentationModel with the specified model and number of classes.
 
@@ -35,12 +35,14 @@ class SimpleSegmentationModel(torch.nn.Module):
             model_name (str): The name of the model to load, one of Prov-GigaPath, Phikon-v2,
                 Virchow2, UNI, Titan.
             num_classes (int): The number of output classes for the segmentation task.
+            return_embeddings (bool): Whether to additionally return the embeddings
         """
         super(SimpleSegmentationModel, self).__init__()
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
         self.model.eval()
         self.freeze_model()
+        self.return_embeddings = return_embeddings
 
     def freeze_model(self):
         """Freeze the model."""
@@ -69,6 +71,8 @@ class SimpleSegmentationModel(torch.nn.Module):
         logits = torch.nn.functional.interpolate(
             logits, size=(h, w), mode="bilinear", align_corners=False
         )
+        if self.return_embeddings:
+            return logits, patch_embeddings
         return logits
 
 
