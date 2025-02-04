@@ -17,9 +17,8 @@ dataset:
 
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: UNI
+  backbone: virchow2
   unfreeze_backbone: false
-  img_size: 224
 
 optimizer:
   name: AdamW
