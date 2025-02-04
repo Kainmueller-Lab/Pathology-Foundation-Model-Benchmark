@@ -45,7 +45,10 @@ class Augmenter(Kaug.AugmentationSequential):
         for name, cfg in self.params.items():
             # Convert config to a standard Python container (dict or list).
             # let OmegaConf do the heaving lifting here.
-            kwargs = OmegaConf.to_container(cfg, resolve=True)
+            if OmegaConf.is_config(cfg):
+                kwargs = OmegaConf.to_container(cfg, resolve=True)
+            else:
+                kwargs = cfg  # Keep it as-is if it's already a dict
              # For RandomElasticTransform, convert specific list parameters to tensors.
              # get_gaussian_kernel2d(kernel_size, sigma) expects sigma to be a tensor instead of a list.
             if name == 'RandomElasticTransform':
