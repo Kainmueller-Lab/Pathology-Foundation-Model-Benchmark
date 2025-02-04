@@ -21,7 +21,7 @@ urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.i
 urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 dependencies = [
-    "torch==2.4.0",
+    "torch==",
     "torchvision",
     "scikit-image",
     "tqdm",
@@ -29,7 +29,7 @@ dependencies = [
     "pandas",
     "pathlib",
     "transformers",
-    "timm==1.0.14",
+    "timm",
     "lmdb",
     "einops",
     "einops_exts",
@@ -43,8 +43,6 @@ dependencies = [
     'kornia',
     'scikit-learn',
     'python-dotenv',
-    'Pillow',
-    'blobfile',
     # MUSK requirements:
     'Pillow',
     'blobfile',
