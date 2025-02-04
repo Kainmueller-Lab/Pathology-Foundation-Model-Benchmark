@@ -2,16 +2,10 @@ from logging import config
 import os
 from omegaconf import OmegaConf
 import torch
-import timm
 
-from functools import partial
 import torch.nn.functional as F
-from huggingface_hub import login
 import numpy as np
 
-
-from timm.data.transforms_factory import create_transform
-from timm.data import resolve_data_config
 
 from bio_image_datasets.lizard_dataset import LizardDataset
 from bio_image_datasets.pannuke import PanNukeDataset

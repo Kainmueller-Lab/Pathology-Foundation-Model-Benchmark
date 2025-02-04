@@ -2,10 +2,16 @@ from transformers import Mask2FormerForUniversalSegmentation, Mask2FormerConfig
 from transformers.models.mask2former.modeling_mask2former import Mask2FormerPixelDecoder
 from transformers import AutoImageProcessor
 import torch
-from benchmark.simple_segmentation_model import model_urls, load_model_and_transform
+from benchmark.simple_segmentation_model import clean_str, model_urls, load_model_and_transform
 import timm
+from timm.data.transforms_factory import create_transform
+from timm.data import resolve_data_config
+from huggingface_hub import login
+from dataclasses import dataclass
 
-backbone, transform, model_dim = load_model_and_transform('uni')
+from simple_segmentation_model import HF_TOKEN, clean_str
+
+backbone, transform, model_dim = load_model_and_transform("uni")
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
 model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
@@ -25,9 +31,6 @@ model_configs = {
     }
 }
 
-
-from timm.data.transforms_factory import create_transform
-from timm.data import resolve_data_config
 
 def load_model_and_transform(model_name):
     """
@@ -50,8 +53,7 @@ def load_model_and_transform(model_name):
         login(token=HF_TOKEN)
     if clean_str(model_name) == "uni":
         model = timm.create_model(
-            f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True,
-            features_only=True
+            f"hf-hub:{model_urls['uni']}", pretrained=True, init_values=1e-5, dynamic_img_size=True, features_only=True
         )
         model.eval()
         model_dim = model_configs[model_name]["channels"]
@@ -60,30 +62,29 @@ def load_model_and_transform(model_name):
     return model, transform, model_dim
 
 
-
-from dataclasses import dataclass
 @dataclass
 class ModelOutput:
     feature_maps: torch.Tensor
+
 
 class ModelWrapper(torch.nn.Module):
     def __init__(self, backbone):
         super().__init__()
 
         self.backbone = backbone
-    
+
     def forward(self, x):
         # use transform function
         return ModelOutput(self.backbone(x))
 
+
 wrapped_backbone = ModelWrapper(backbone)
-#
 
 model = Mask2FormerForUniversalSegmentation(model_config)
 model.model.pixel_level_module.encoder = wrapped_backbone
-model.model.pixel_level_module.encoder.channels = model_configs['uni']['channels']
+model.model.pixel_level_module.encoder.channels = model_configs["uni"]["channels"]
 model.model.pixel_level_module.decoder = Mask2FormerPixelDecoder(
-    model_config, feature_channels=model_configs['uni']['channels']
+    model_config, feature_channels=model_configs["uni"]["channels"]
 )
 # make mock image batch
 image = torch.rand(2, 3, 224, 224)
@@ -94,7 +95,6 @@ with torch.no_grad():
 results = image_processor.post_process_semantic_segmentation(out, target_sizes=[image.size()[::-1]])
 
 
-
 class Mask2FormerModel(torch.nn.Module):
     def __init__(self, model_name, num_classes):
         super().__init__()
@@ -102,18 +102,12 @@ class Mask2FormerModel(torch.nn.Module):
         self.backbone, self.transform, model_dim = load_model_and_transform(model_name)
         self.backbone = ModelWrapper(self.backbone)
         self.num_classes = num_classes
-        self.image_processor = AutoImageProcessor.from_pretrained(
-            "facebook/mask2former-swin-tiny-cityscapes-semantic"
-        )
-        model_config = Mask2FormerConfig.from_pretrained(
-            "facebook/mask2former-swin-tiny-cityscapes-semantic"
-        )
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
+        model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
         self.model = Mask2FormerForUniversalSegmentation(model_config)
         self.model.model.pixel_level_module.encoder = self.backbone
         self.model.model.pixel_level_module.encoder.channels = model_dim
-        self.model.model.pixel_level_module.decoder = Mask2FormerPixelDecoder(
-            model_config, feature_channels=model_dim
-        )
+        self.model.model.pixel_level_module.decoder = Mask2FormerPixelDecoder(model_config, feature_channels=model_dim)
         self.model.eval()
 
     def freeze_model(self):
@@ -125,7 +119,7 @@ class Mask2FormerModel(torch.nn.Module):
         """Unfreeze the model."""
         for param in self.model.model.pixel_level_module.encoder.parameters():
             param.requires_grad = True
-        
+
     def forward(self, x):
         """Forward pass of the model.
 
@@ -136,10 +130,10 @@ class Mask2FormerModel(torch.nn.Module):
         """
         b, c, h, w = x.shape
         if clean_str(self.model_name) == "phikonv2":
-            x = self.transform(x, return_tensors="pt")['pixel_values']
-        else: 
+            x = self.transform(x, return_tensors="pt")["pixel_values"]
+        else:
             x = self.transform(x)
-        out = self.model(x)
-        
-        # model forward
 
+        out = self.model(x)
+
+        return self.image_processor.post_process_semantic_segmentation(out, target_sizes=[image.size()[::-1]])
