@@ -34,10 +34,10 @@ class Augmenter(Kaug.AugmentationSequential):
                 }
             kwargs (dict): Keyword arguments for the transformations base class, e.g.
                 data_keys=["image", "mask"], same_on_batch=False, keepdim=True, etc.
-        """
+        """  # noqa: D205
         self.params = params
         self.transforms = self.define_augmentations()
-        super(Augmenter, self).__init__(*self.transforms, **kwargs)
+        super().__init__(*self.transforms, **kwargs)
 
     def define_augmentations(self):
         """Creates the transformations based on names and values in params."""
@@ -63,5 +63,5 @@ class Augmenter(Kaug.AugmentationSequential):
         identical.
         Args:
             args (dict): Keyword arguments for the last transform.
-        """
+        """  # noqa: D205
         return self.__call__(*args, params=self._params)
