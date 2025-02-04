@@ -57,5 +57,5 @@ augmentations:
     sigma: [32.0, 32.0]
     alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
   HEDNormalize:
-    sigma: 0.05
-    bias: 0.1
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug
