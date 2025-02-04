@@ -21,7 +21,7 @@ urls.Documentation = "https://Pathology-Foundation-Model-Benchmark.readthedocs.i
 urls.Source = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 urls.Home-page = "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
 dependencies = [
-    "torch==",
+    "torch",
     "torchvision",
     "scikit-image",
     "tqdm",
