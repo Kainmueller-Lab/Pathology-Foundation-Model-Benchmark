@@ -63,6 +63,9 @@ class LMDBDataset(Dataset):
             if value is None:
                 raise ValueError(f"No data found for key {key}")
             data = pickle.loads(value)
+        if 'image' in data and data['image'] is not None:
+            if data['image'].max() > 1: # Normalize image if it is not already normalized
+                data['image'] = data['image'] / data['image'].max()
         return data
 
 

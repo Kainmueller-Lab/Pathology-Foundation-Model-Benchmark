@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: provgigapath_schuerch_linear_zero_mask_2
+experiment: provgigapath_schuerch_linear_zero_mask_3
 wandb_mode: 'offline'
 experiment_path: /home/fabian/projects/lab_hackathon_2024/experiments
 training_steps: 300

@@ -7,12 +7,14 @@ from omegaconf import OmegaConf
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import wandb
+from benchmark.augmentations import Augmenter
 from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
 from benchmark.eval import Eval
 from benchmark.simple_segmentation_model import *
 import argparse
 import h5py
+
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
@@ -39,6 +41,11 @@ def train(cfg):
         save_dir=os.path.join(log_dir, "validation_results"),
         fname="validation_metrics.csv"
     )
+    if hasattr(cfg, "augmentations"):
+        augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
+    else:
+        def augment_fn(img, mask, instance_mask):
+            return img, mask, instance_mask
     # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
     #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
@@ -127,12 +134,15 @@ def train(cfg):
             img = sample_dict["image"].float()
             semantic_mask = sample_dict["semantic_mask"]
             instance_mask = sample_dict.get("instance_mask", None)
-            step += 1
             img = img.to(device)
             semantic_mask = semantic_mask.to(device)
+            instance_mask = instance_mask.to(device)
+            img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(
+                img, semantic_mask, instance_mask
+            )
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                pred_mask = model(img)
-                loss = loss_fn(pred_mask, semantic_mask.long())
+                pred_mask = model(img_aug)
+                loss = loss_fn(pred_mask, semantic_mask_aug.long())
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -146,7 +156,8 @@ def train(cfg):
                         "lr": optimizer.param_groups[0]["lr"],
                     }, step=step)
                 print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
-            if step % cfg.log_interval == 0:
+            # log at cfg.log_interval or at the end of training
+            if (step % cfg.log_interval == 0) or (step == cfg.training_steps-1):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
@@ -175,9 +186,21 @@ def train(cfg):
                         f.create_dataset(
                             "semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy()
                         )
+                        f.create_dataset(
+                            "img_aug", data=img_aug.cpu().detach().numpy()
+                        )
+                        f.create_dataset(
+                            "semantic_mask_aug",
+                            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy()
+                        )
                         if instance_mask is not None:
                             f.create_dataset(
-                                "instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                                "instance_mask",
+                                data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                            )
+                            f.create_dataset(
+                                "instance_mask_aug",
+                                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
                             )
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/"+cfg.primary_metric])
@@ -188,6 +211,8 @@ def train(cfg):
                         )
                         torch.save(model.state_dict(), model_path)
                         best_checkpoint_step = step
+            step += 1
+
     if hasattr(cfg, "primary_metric"):
         model.load_state_dict(torch.load(model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
@@ -205,7 +230,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)
