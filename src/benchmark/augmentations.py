@@ -1,7 +1,10 @@
 import kornia.augmentation as Kaug
 from benchmark import custom_augmentations as Caug
+from omegaconf import DictConfig, ListConfig, OmegaConf
 import warnings
-warnings.simplefilter('once', UserWarning)  # Set this at the script start
+import torch
+
+warnings.simplefilter("once", UserWarning)  # Set this at the script start
 
 
 def get_augmentation(name, **kwargs):
@@ -19,8 +22,8 @@ def get_augmentation(name, **kwargs):
 
 
 class Augmenter(Kaug.AugmentationSequential):
-    """Augmenter class to apply augmentations to a batch of samples.
-    """
+    """Augmenter class to apply augmentations to a batch of samples."""
+
     def __init__(self, params, **kwargs):
         """Initializes the Augmenter class.
         Args:
@@ -31,17 +34,27 @@ class Augmenter(Kaug.AugmentationSequential):
                 }
             kwargs (dict): Keyword arguments for the transformations base class, e.g.
                 data_keys=["image", "mask"], same_on_batch=False, keepdim=True, etc.
-        """
+        """  # noqa: D205
         self.params = params
         self.transforms = self.define_augmentations()
-        super(Augmenter, self).__init__(*self.transforms, **kwargs)
+        super().__init__(*self.transforms, **kwargs)
 
     def define_augmentations(self):
-        """Creates the transformations based on names and values in params.
-        """
-        # creates the transformations based on names and values in params
+        """Creates the transformations based on names and values in params."""
         transforms = []
-        for name, kwargs in self.params.items():
+        for name, cfg in self.params.items():
+            # Convert config to a standard Python container (dict or list).
+            # let OmegaConf do the heaving lifting here.
+            if OmegaConf.is_config(cfg):
+                kwargs = OmegaConf.to_container(cfg, resolve=True)
+            else:
+                kwargs = cfg  # Keep it as-is if it's already a dict
+             # For RandomElasticTransform, convert specific list parameters to tensors.
+             # get_gaussian_kernel2d(kernel_size, sigma) expects sigma to be a tensor instead of a list.
+            if name == 'RandomElasticTransform':
+                for key in ['kernel_size', 'sigma', 'alpha']:
+                    if key in kwargs and isinstance(kwargs[key], list):
+                        kwargs[key] = torch.tensor(kwargs[key])
             transforms.append(get_augmentation(name, **kwargs))
         return transforms
 
@@ -51,5 +64,5 @@ class Augmenter(Kaug.AugmentationSequential):
         identical.
         Args:
             args (dict): Keyword arguments for the last transform.
-        """
+        """  # noqa: D205
         return self.__call__(*args, params=self._params)

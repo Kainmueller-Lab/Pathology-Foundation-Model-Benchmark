@@ -35,7 +35,7 @@ def train(cfg):
     model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
     if cfg.model.unfreeze_backbone:
         model.unfreeze_model()
-    
+
     evaluater = Eval(
         label_dict, instance_level=True, pixel_level=False,
         save_dir=os.path.join(log_dir, "validation_results"),
@@ -77,7 +77,7 @@ def train(cfg):
 
     scaler = torch.amp.GradScaler(device.type)
 
-    def worker_init_fn(worker_id):                                                          
+    def worker_init_fn(worker_id):
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
     train_dataloader = DataLoader(
@@ -140,6 +140,10 @@ def train(cfg):
             img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(
                 img, semantic_mask, instance_mask
             )
+            # augment_fn adds an extra dimension to the masks. Remove it, if it exists
+            # the extra dimension throws an error at the loss function
+            semantic_mask_aug = semantic_mask_aug.squeeze(1)  # Remove the extra dimension
+            instance_mask_aug = instance_mask_aug.squeeze(1)  # Remove the extra dimension
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 pred_mask = model(img_aug)
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
