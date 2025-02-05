@@ -82,7 +82,7 @@ def train(cfg):
     def worker_init_fn(worker_id):                                                          
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
-    train_sampler = get_weighted_sampler(train_dset, range(0,len(label_dict)))
+    train_sampler = get_weighted_sampler(train_dset, classes=[int(k) for k in label_dict.keys()])
 
     train_dataloader = DataLoader(
         train_dset, batch_size=cfg.dataset.batch_size, pin_memory=True,
