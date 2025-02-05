@@ -192,3 +192,29 @@ class EMAInverseClassFrequencyLoss(nn.Module):
         loss = self.loss_fn(pred, target)
         loss, mask = exclude_classes(self.exclude_class, loss, target)
         return loss.sum() / mask.sum()
+
+
+def get_weighted_sampler(ds, classes):
+    count_list = []
+    for sample in ds:
+        semantic_mask = sample["semantic_mask"]
+        tmp_list = []
+        for c in classes:
+            tmp_list.append(
+                np.count_nonzero(semantic_mask == c)
+            )  # sum of individual classes for a sample
+        count_list.append(np.stack(tmp_list))
+    
+    counts = np.stack(count_list)  # n_samples x classes
+    sampling_weights = np.divide(
+        counts,
+        counts.sum(0)[np.newaxis, ...],
+        where=counts.sum(0)[np.newaxis, ...] != 0,
+    )  # n_samples x classes / 1 x classes = n_samples x classes
+    sampling_weights = sampling_weights.sum(1)  # n_samples
+    sampler = torch.utils.data.WeightedRandomSampler(
+        torch.from_numpy(sampling_weights),
+        num_samples=len(sampling_weights),
+        replacement=True,
+    )
+    return sampler

@@ -15,6 +15,7 @@ from benchmark.simple_segmentation_model import *
 import argparse
 import h5py
 
+from benchmark.utils import get_weighted_sampler
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
@@ -64,14 +65,15 @@ def train(cfg):
     # log only on rank 0
     if 'RANK' in os.environ and LOCAL_RANK==0 or "mock" not in cfg.experiment.lower():
         logging = True
-        wandb.init(
-            name=cfg.experiment,
-            project=cfg.project,
-            entity="kainmueller-lab",
-            config=OmegaConf.to_container(cfg),
-            dir=cfg.writer_dir,
-            mode=cfg.get('wandb_mode', 'online'),
-            )
+        logging = False
+        # wandb.init(
+        #     name=cfg.experiment,
+        #     project=cfg.project,
+        #     entity="kainmueller-lab",
+        #     config=OmegaConf.to_container(cfg),
+        #     dir=cfg.writer_dir,
+        #     mode=cfg.get('wandb_mode', 'online'),
+        #     )
     else:
         logging = False
 
@@ -80,12 +82,14 @@ def train(cfg):
     def worker_init_fn(worker_id):                                                          
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
+    train_sampler = get_weighted_sampler(train_dset, range(0,len(label_dict)))
+
     train_dataloader = DataLoader(
         train_dset, batch_size=cfg.dataset.batch_size, pin_memory=True,
         worker_init_fn=worker_init_fn,
         prefetch_factor=8 if cfg.multiprocessing else None,
         num_workers=cfg.num_workers-1 if cfg.multiprocessing else 0,
-        shuffle=True,
+        sampler=train_sampler
     )
     val_dataloader = DataLoader(
         val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
@@ -230,7 +234,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
+    parser.add_argument("--config", type=str, default="configs/config.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)
