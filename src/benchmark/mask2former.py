@@ -3,21 +3,59 @@ from transformers import Mask2FormerForUniversalSegmentation, Mask2FormerConfig
 from transformers.models.mask2former.modeling_mask2former import Mask2FormerPixelDecoder
 from transformers import AutoImageProcessor
 import torch
-from benchmark.simple_segmentation_model import clean_str, load_model_and_transform
+from benchmark import utils
+from benchmark.simple_segmentation_model import clean_str
 import timm
+import musk
 from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
 from huggingface_hub import login
 from dataclasses import dataclass
+from timm.layers import SwiGLUPacked
+from transformers import AutoImageProcessor, AutoModel
+from torchvision import transforms
+from timm.data.transforms import MaybeToTensor
+from timm.data.constants import (
+    IMAGENET_INCEPTION_MEAN,
+    IMAGENET_INCEPTION_STD,
+    IMAGENET_DEFAULT_MEAN,
+    IMAGENET_DEFAULT_STD,
+)
+from transformers import MaskFormerImageProcessor
+from benchmark.simple_segmentation_model import HF_TOKEN, MockModel, clean_str, get_model_dim
 
-from simple_segmentation_model import HF_TOKEN, MockModel, clean_str, get_model_dim
 
-# TODO: put into model configs
-model_configs = {
-    "uni": {
-        "channels": [1024, 1024, 1024],
-    }
-}
+def get_model_dim(model, img_size):
+    """
+    Get the dimensionality of the features output by the model.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model to get the feature dimensionality from.
+
+    Returns
+    -------
+    int
+        The dimensionality of the features output by the model.
+    """
+    model_dims = []
+    with torch.no_grad():
+        model_ouput = model(torch.zeros(1, 3, img_size, img_size))
+        if hasattr(model_ouput, "hidden_states"):
+            hidden_states = model_ouput.hidden_states
+        else:
+            hidden_states = model_ouput
+
+        for layer_ in hidden_states:
+            print("layer", layer_.shape)
+            if len(layer_.shape) > 1:
+                dim_idx = 1
+            else:
+                dim_idx = 0
+            model_dims.append(layer_.shape[dim_idx])
+
+    return model_dims
 
 
 def load_model_and_transform(model_name):
@@ -36,57 +74,23 @@ def load_model_and_transform(model_name):
     """
     login(token=HF_TOKEN)
     if clean_str(model_name) == "provgigapath":
-        login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/provgigapath.yaml")
-        model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained)
-        model.forward_patches = (
-            lambda x: model.forward_features(x)[:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
-        )
+        model = timm.create_model(f"hf_hub:{model_cfg.url}", pretrained=model_cfg.pretrained, features_only=True)
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "phikonv2":
-        login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
-        model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
-        model.forward_patches = (
-            lambda x: model(x.to(model.device))
-            .last_hidden_state[:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
-        )
+        model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=True)
         transform = AutoImageProcessor.from_pretrained(model_cfg.url)
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "virchow2":
-        login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/virchow2.yaml")
         model = timm.create_model(
             f"hf_hub:{model_cfg.url}",
             pretrained=model_cfg.pretrained,
             mlp_layer=SwiGLUPacked,
             act_layer=torch.nn.SiLU,
-        )
-        # start from index 5 of last_hidden_state since first token is CLS, token 1-4 are registers
-        model.forward_patches = (
-            lambda x: model(x)[:, 5:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
+            features_only=True,
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
@@ -99,11 +103,9 @@ def load_model_and_transform(model_name):
             dynamic_img_size=model_cfg.dynamic_img_size,
             features_only=True,
         )
-
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "uni2":
-        login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/uni2.yaml")
         model = timm.create_model(
             f"hf_hub:{model_cfg.url}",
@@ -121,23 +123,13 @@ def load_model_and_transform(model_name):
             act_layer=torch.nn.SiLU,
             reg_tokens=model_cfg.reg_tokens,
             dynamic_img_size=model_cfg.dynamic_img_size,
-        )
-        model.forward_patches = (
-            lambda x: model.forward_features(x)[:, model_cfg.reg_tokens + 1 :, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
+            features_only=True,
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "titan":
-        login(token=HF_TOKEN)
         model_cfg = OmegaConf.load("configs/models/titan.yaml")
-        titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True)
+        titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=True)
         model, _ = titan.return_conch()
         transform = transforms.Compose(
             [
@@ -146,22 +138,11 @@ def load_model_and_transform(model_name):
                 transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD),
             ]
         )
-        model.forward_patches = (
-            lambda x: model._modules["trunk"]
-            .forward_features(x)[:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
-        )
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "musk":
         model_cfg = OmegaConf.load("configs/models/musk.yaml")
-        model = create_model("musk_large_patch16_384")
-        utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, "model|module", "")
+        model = timm.models.create_model("musk_large_patch16_384")
+        musk.utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, "model|module", "")
         model.to(device="cuda", dtype=torch.float32)
         transform = transforms.Compose(
             [
@@ -172,22 +153,6 @@ def load_model_and_transform(model_name):
             ]
         )
 
-        model.forward_patches = (
-            lambda x: model(
-                x.to(device="cuda", dtype=torch.float32),
-                with_head=False,
-                out_norm=False,
-                ms_aug=False,
-                return_global=False,
-            )[0][:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
-            )
-            .permute(0, 3, 1, 2)
-        )
         model_dim = get_model_dim(model, img_size=model_cfg.img_size)
     elif clean_str(model_name) == "mock":
         model = MockModel(1024)
@@ -195,6 +160,9 @@ def load_model_and_transform(model_name):
         model_dim = 1024
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
+    if hasattr(model_cfg, "channels"):
+        model_dim = model_cfg.channels
+    print("model_dim", model_dim)
     return model.eval(), transform, model_dim
 
 
@@ -221,8 +189,20 @@ class Mask2FormerModel(torch.nn.Module):
         self.backbone, self.transform, model_dim = load_model_and_transform(model_name)
         self.backbone = ModelWrapper(self.backbone)
         self.num_classes = num_classes
-        self.image_processor = AutoImageProcessor.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
-        model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-tiny-cityscapes-semantic")
+        # self.image_processor = AutoImageProcessor.from_pretrained(
+        #    "facebook/mask2former-swin-tiny-cityscapes-semantic", use_fast=True, do_rescale=False
+        # )
+        self.image_processor = MaskFormerImageProcessor(
+            do_resize=True,
+            size=(224, 224),
+            do_rescale=False,
+            image_mean=IMAGENET_DEFAULT_MEAN,
+            image_std=IMAGENET_DEFAULT_STD,
+            num_labels=num_classes,
+        )
+        print("orig", self.image_processor.num_labels)
+        # self.image_processor.num_labels = num_classes
+        model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
         self.model = Mask2FormerForUniversalSegmentation(model_config)
         self.model.model.pixel_level_module.encoder = self.backbone
         self.model.model.pixel_level_module.encoder.channels = model_dim
@@ -247,12 +227,17 @@ class Mask2FormerModel(torch.nn.Module):
         Returns:
             logits: Output logits of shape (b, num_classes, h, w)
         """
-        b, c, h, w = x.shape
+        pixel_vals = x["pixel_values"]
+        pixel_masks = x["pixel_mask"]
+        b, c, h, w = pixel_vals.shape
+        print("bchw", b, c, h, w)
+
         if clean_str(self.model_name) == "phikonv2":
-            x = self.transform(x, return_tensors="pt")["pixel_values"]
+            pixel_vals = self.transform(pixel_vals, return_tensors="pt")["pixel_values"]
         else:
-            x = self.transform(x)
+            pixel_vals = self.transform(pixel_vals)
 
-        out = self.model(x)
-
-        return self.image_processor.post_process_semantic_segmentation(out, target_sizes=[image.size()[::-1]])
+        out = self.model(pixel_values=pixel_vals)  # , pixel_mask=pixel_masks)
+        print(out.masks_queries_logits.shape)
+        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[(224, 224)])[0]
+        return semantic_seg, out.masks_queries_logits

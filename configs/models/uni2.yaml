@@ -11,3 +11,4 @@ no_embed_class: True
 reg_tokens: 8
 dynamic_img_size: True
 img_size: 224
+channel: [1536, 1536, 1536]
