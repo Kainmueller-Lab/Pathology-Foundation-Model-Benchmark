@@ -172,37 +172,39 @@ class ModelOutput:
 
 
 class ModelWrapper(torch.nn.Module):
-    def __init__(self, backbone):
+    def __init__(self, backbone, model_transform):
         super().__init__()
 
         self.backbone = backbone
+        self.model_transform = model_transform
 
     def forward(self, x):
-        # use transform function
+        # Transform should not be used because m2f already has an image processor
+        # x = self.model_transform(x)
         return ModelOutput(self.backbone(x))
 
 
 class Mask2FormerModel(torch.nn.Module):
-    def __init__(self, model_name, num_classes):
+
+    def __init__(self, model_name, num_classes, img_shape=(224, 224)):
         super().__init__()
         self.model_name = model_name
         self.backbone, self.transform, model_dim = load_model_and_transform(model_name)
-        self.backbone = ModelWrapper(self.backbone)
+        self.backbone = ModelWrapper(self.backbone, self.transform)
         self.num_classes = num_classes
-        # self.image_processor = AutoImageProcessor.from_pretrained(
-        #    "facebook/mask2former-swin-tiny-cityscapes-semantic", use_fast=True, do_rescale=False
-        # )
-        self.image_processor = MaskFormerImageProcessor(
-            do_resize=True,
-            size=(224, 224),
+        self.img_shape = img_shape
+        self.image_processor = AutoImageProcessor.from_pretrained(
+            "facebook/mask2former-swin-tiny-cityscapes-semantic",
+            use_fast=True,
             do_rescale=False,
+            size=img_shape,
             image_mean=IMAGENET_DEFAULT_MEAN,
             image_std=IMAGENET_DEFAULT_STD,
             num_labels=num_classes,
         )
-        print("orig", self.image_processor.num_labels)
-        # self.image_processor.num_labels = num_classes
+
         model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
+
         self.model = Mask2FormerForUniversalSegmentation(model_config)
         self.model.model.pixel_level_module.encoder = self.backbone
         self.model.model.pixel_level_module.encoder.channels = model_dim
@@ -225,19 +227,15 @@ class Mask2FormerModel(torch.nn.Module):
         Args:
             x: Input tensor of shape (b, c, h, w)
         Returns:
-            logits: Output logits of shape (b, num_classes, h, w)
+            logits: Output logits of shape (b, h, w)
         """
-        pixel_vals = x["pixel_values"]
-        pixel_masks = x["pixel_mask"]
-        b, c, h, w = pixel_vals.shape
-        print("bchw", b, c, h, w)
 
-        if clean_str(self.model_name) == "phikonv2":
-            pixel_vals = self.transform(pixel_vals, return_tensors="pt")["pixel_values"]
-        else:
-            pixel_vals = self.transform(pixel_vals)
+        # Uncomment if you want to use the model's transforms
+        # if clean_str(self.model_name) == "phikonv2":
+        #    x = self.transform(x, return_tensors="pt")["pixel_values"]
+        # else:
+        #    x = self.transform(x)
 
-        out = self.model(pixel_values=pixel_vals)  # , pixel_mask=pixel_masks)
-        print(out.masks_queries_logits.shape)
-        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[(224, 224)])[0]
-        return semantic_seg, out.masks_queries_logits
+        out = self.model(**x)
+        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[self.img_shape])[0]
+        return semantic_seg

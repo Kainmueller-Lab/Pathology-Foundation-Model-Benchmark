@@ -33,16 +33,7 @@ if __name__ == "__main__":
     num_classes = 7
     min_count = 10
 
-    """
-    # Loop to find hidden dim of models
-    model_names = ["uni2"]  # uni, provgigapath, phikonv2, virchow2
-    for model_name in model_names:
-        print(f"Instantiating model {model_name}...")
-        backbone, transform, model_dim = load_model_and_transform(model_name)
-        print(model_name, model_dim)
-    """
-
-    outdir = "../../outputs/test_m2f_hf_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M%S"))
+    outdir = "../../outputs/test_m2f_hf_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M"))
     os.makedirs(outdir, exist_ok=True)
 
     model_name = "uni2"
@@ -64,26 +55,16 @@ if __name__ == "__main__":
         instance_mask = sample["instance_mask"]
 
         print("image", image.shape, image.min(), image.max())
-        # processed_image = model.image_processor(image, return_tensors="pt")
-        # image = {
-        #    "pixel_values": processed_image["pixel_values"].cuda(),
-        #    "pixel_mask": processed_image["pixel_mask"].cuda(),
-        # }
-
-        print(
-            "processed_img",
-            image["pixel_values"].shape,
-            image["pixel_values"].min(),
-            image["pixel_values"].max(),
-        )
-
+        processed_image = model.image_processor(image, return_tensors="pt")
+        image = {
+            "pixel_values": processed_image["pixel_values"].cuda(),
+            "pixel_mask": processed_image["pixel_mask"].cuda(),
+        }
         print("ground_truth", ground_truth.shape, ground_truth.min(), ground_truth.max())
 
-        seg_logits, exp = model(image)
-        exp = exp.detach().cpu().numpy()
+        seg_logits = model(image)  # .unsqueeze(0))
         seg_logits_cpu = seg_logits.detach().cpu().numpy()
         print("segmentation_logits shape, min, max", seg_logits_cpu.shape, seg_logits_cpu.min(), seg_logits_cpu.max())
-        print("exp shape, min, max", exp.shape, exp.min(), exp.max())
 
         # get the unique values and their counts
         unique, counts = np.unique(seg_logits_cpu, return_counts=True)
@@ -95,16 +76,15 @@ if __name__ == "__main__":
         print("GT", vals_count_gt)
         print("PRED", vals_count_seg)
 
-        f, a = plt.subplots(1, 5)
+        f, a = plt.subplots(1, 3)
         f.set_size_inches(25, 5)
         a[0].imshow(normalize(image_cpu.transpose(1, 2, 0)))
         a[1].imshow(normalize(ground_truth))
         a[2].imshow(normalize(seg_logits_cpu))
-        a[3].imshow(normalize(processed_image["pixel_mask"][0, :, :]))
-        a[4].imshow(normalize(processed_image["pixel_values"][0, :, :, :].numpy().transpose(1, 2, 0)))
 
         plt.savefig(os.path.join(outdir, f"segmented_image_{i}.png"), bbox_inches="tight")
 
+        """
         f, a = plt.subplots(1, 7)
         f.set_size_inches(20, 5)
         a[0].imshow(normalize(image_cpu.transpose(1, 2, 0)))
@@ -115,8 +95,9 @@ if __name__ == "__main__":
         a[5].imshow(normalize(exp[0, 3, :, :]))
         a[6].imshow(normalize(exp[0, 50, :, :]))
         plt.savefig(os.path.join(outdir, f"segmented_exp_{i}.png"), bbox_inches="tight")
+        """
 
         # Assuming `segmentation_logits` is the predicted segmentation map and `ground_truth` is the actual label
         score = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
-        # score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
-        # print("Jaccard Score:", score_value)
+        score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
+        print("Jaccard Score:", score_value)
