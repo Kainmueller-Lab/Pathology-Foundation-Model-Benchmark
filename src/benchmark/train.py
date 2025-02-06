@@ -15,6 +15,7 @@ from benchmark.simple_segmentation_model import *
 import argparse
 import h5py
 
+from benchmark.utils import get_weighted_sampler
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
@@ -80,12 +81,20 @@ def train(cfg):
     def worker_init_fn(worker_id):
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
+    if cfg.dataset.uniform_class_sampling:
+        if cfg.dataset.sample_excluded_classes:
+            classes = [int(k) for k in label_dict.keys() if int(k) not in cfg.loss_fn.exclude_classes]
+        else:
+            classes = [int(k) for k in label_dict.keys()]
+        train_sampler = get_weighted_sampler(train_dset, classes=classes)
+
     train_dataloader = DataLoader(
         train_dset, batch_size=cfg.dataset.batch_size, pin_memory=True,
         worker_init_fn=worker_init_fn,
         prefetch_factor=8 if cfg.multiprocessing else None,
         num_workers=cfg.num_workers-1 if cfg.multiprocessing else 0,
-        shuffle=True,
+        sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
+        shuffle=not cfg.dataset.uniform_class_sampling
     )
     val_dataloader = DataLoader(
         val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
@@ -234,7 +243,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
+    parser.add_argument("--config", type=str, default="configs/config.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)

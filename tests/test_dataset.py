@@ -5,6 +5,7 @@ import tempfile
 import numpy as np
 from torch.utils.data import Dataset
 from benchmark.lmdb_dataset import LMDBDataset
+from benchmark.utils import get_weighted_sampler
 
 
 def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
@@ -24,10 +25,16 @@ def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
             if include_sample_names and sample_name not in include_sample_names:
                 continue
 
+            if i == 0:
+                semantic_mask = np.ones([224,224])
+            else:
+                semantic_mask = np.zeros([224,224])
+
             tile_dict = {
                 "tile_name": f"{sample_name}_tile_{i}",
                 "sample_name": sample_name,
                 "data": np.random.rand(224, 224, 3).tolist(),
+                "semantic_mask": semantic_mask
             }
             key = f"{i:08}".encode("ascii")
             txn.put(key, pickle.dumps(tile_dict))
@@ -93,3 +100,15 @@ def test_no_include_sample_names():
         for sample in dataset:
             assert sample["sample_name"].startswith("sample_")
         del dataset
+
+def test_sampler():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        lmdb_path = f"{tmp_dir}/mock_lmdb"
+        os.makedirs(os.path.dirname(lmdb_path), exist_ok=True)
+        create_mock_lmdb(lmdb_path, num_samples=5)
+        dataset = LMDBDataset(path=lmdb_path)
+        sampler = get_weighted_sampler(dataset, classes=[0, 1])
+        sampling_weights = sampler.weights.tolist()
+
+        assert len(sampling_weights) == 5
+        assert np.all(np.array(sampling_weights[1:]) < sampling_weights[0])
