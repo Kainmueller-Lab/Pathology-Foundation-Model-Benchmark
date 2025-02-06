@@ -195,6 +195,19 @@ class EMAInverseClassFrequencyLoss(nn.Module):
 
 
 def get_weighted_sampler(ds, classes):
+    """
+    Generate a weighted sampler for the given dataset based on the given classes.
+
+    The sampler is designed to sample more often from classes that have fewer pixels in the dataset.
+
+    Args:
+        ds (Dataset): The dataset to sample from.
+        classes (list): The classes to sample from.
+
+    Returns:
+        torch.utils.data.sampler.WeightedRandomSampler: The weighted sampler.
+    """
+
     count_list = []
     for sample in ds:
         semantic_mask = sample["semantic_mask"]

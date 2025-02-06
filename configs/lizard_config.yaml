@@ -14,6 +14,7 @@ dataset:
   split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/lizard_default_train_test_val_split.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/label_dict.json
   batch_size: 128
+  uniform_class_sampling: True
 
 model:
   model_wrapper: SimpleSegmentationModel

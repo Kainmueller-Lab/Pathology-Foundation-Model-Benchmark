@@ -65,15 +65,14 @@ def train(cfg):
     # log only on rank 0
     if 'RANK' in os.environ and LOCAL_RANK==0 or "mock" not in cfg.experiment.lower():
         logging = True
-        logging = False
-        # wandb.init(
-        #     name=cfg.experiment,
-        #     project=cfg.project,
-        #     entity="kainmueller-lab",
-        #     config=OmegaConf.to_container(cfg),
-        #     dir=cfg.writer_dir,
-        #     mode=cfg.get('wandb_mode', 'online'),
-        #     )
+        wandb.init(
+            name=cfg.experiment,
+            project=cfg.project,
+            entity="kainmueller-lab",
+            config=OmegaConf.to_container(cfg),
+            dir=cfg.writer_dir,
+            mode=cfg.get('wandb_mode', 'online'),
+            )
     else:
         logging = False
 
@@ -89,7 +88,8 @@ def train(cfg):
         worker_init_fn=worker_init_fn,
         prefetch_factor=8 if cfg.multiprocessing else None,
         num_workers=cfg.num_workers-1 if cfg.multiprocessing else 0,
-        sampler=train_sampler
+        sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
+        shuffle=not cfg.dataset.uniform_class_sampling
     )
     val_dataloader = DataLoader(
         val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0

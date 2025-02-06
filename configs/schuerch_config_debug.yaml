@@ -15,6 +15,7 @@ dataset:
   split: /home/fabian/raid5/schuerch_dataset/schuerch_dataset_lmdb/splits/schuerch_dataset_split.csv
   label_dict: /home/fabian/raid5/schuerch_dataset/schuerch_dataset_lmdb/label_dict.json
   batch_size: 128
+  uniform_class_sampling: True
 
 model:
   model_wrapper: SimpleSegmentationModel
