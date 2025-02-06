@@ -25,8 +25,10 @@ def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
             if include_sample_names and sample_name not in include_sample_names:
                 continue
 
-            # create random semantic mask with 70 % zeros and 30 % ones
-            semantic_mask = np.hstack((np.zeros(int(np.floor(224*224*0.7))), np.ones(int(np.ceil(224*224*0.3))))).reshape(224, 224) 
+            if i == 0:
+                semantic_mask = np.ones([224,224])
+            else:
+                semantic_mask = np.zeros([224,224])
 
             tile_dict = {
                 "tile_name": f"{sample_name}_tile_{i}",
@@ -106,6 +108,7 @@ def test_sampler():
         create_mock_lmdb(lmdb_path, num_samples=5)
         dataset = LMDBDataset(path=lmdb_path)
         sampler = get_weighted_sampler(dataset, classes=[0, 1])
+        sampling_weights = sampler.weights.tolist()
 
-        assert len(sampler.weights) == 5
-        assert sampler.weights.tolist() == [0.4, 0.4, 0.4, 0.4, 0.4]
+        assert len(sampling_weights) == 5
+        assert np.all(np.array(sampling_weights[1:]) < sampling_weights[0])

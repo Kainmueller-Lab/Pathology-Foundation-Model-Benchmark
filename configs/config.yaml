@@ -15,6 +15,7 @@ dataset:
   label_dict: tests/test_data/label_dict.json
   batch_size: 2
   uniform_class_sampling: True
+  sample_excluded_classes: False
   
 model:
   model_wrapper: SimpleSegmentationModel
