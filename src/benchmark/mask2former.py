@@ -187,13 +187,14 @@ class ModelWrapper(torch.nn.Module):
 
 class Mask2FormerModel(torch.nn.Module):
 
-    def __init__(self, model_name, num_classes, img_shape=(224, 224)):
+    def __init__(self, model_name, num_classes, img_shape=(224, 224), num_queries=100):
         super().__init__()
         self.model_name = model_name
         self.backbone, self.transform, model_dim = load_m2f_model_and_transform(model_name)
         self.backbone = ModelWrapper(self.backbone, self.transform)
-        self.num_classes = num_classes
+        self.num_classes = num_classes - 1  # to exclude backgound
         self.img_shape = img_shape
+        self.num_queries = num_queries
         self.image_processor = AutoImageProcessor.from_pretrained(
             "facebook/mask2former-swin-tiny-cityscapes-semantic",
             use_fast=True,
@@ -201,24 +202,23 @@ class Mask2FormerModel(torch.nn.Module):
             size=img_shape,
             image_mean=IMAGENET_DEFAULT_MEAN,
             image_std=IMAGENET_DEFAULT_STD,
-            num_labels=num_classes - 1, # exclude background
+            num_labels=num_classes,
+            num_queries=num_queries,
         )
 
-        #model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
-        model_config = Mask2FormerConfig.from_pretrained('/fast/AG_Kainmueller/nkoreub/Pathology-Foundation-Model-Benchmark/configs/mask2former_lizard.json')
-        model_config.num_labels = self.num_classes - 1 # because m2f adds weight for background class during loss computation
+        model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
+        model_config.num_classes = num_classes
+        model_config.num_queries = num_queries
+        # model_config.backbone_config = {}
+        model_config.label2id = {f"cell_{i}": str(i) for i in range(num_classes)}
+        model_config.id2label = {str(i): f"cell_{i}" for i in range(num_classes)}
+        print(model_config)
 
         self.model = Mask2FormerForUniversalSegmentation(model_config)
-
-        #print('MODEL CHILDREN')
-        #for name, child in self.model.named_children():
-        #    print(name, child)
-
-        # --> reveals: class_predictor Linear(in_features=256, out_features=7, bias=True)
-
         self.model.model.pixel_level_module.encoder = self.backbone
         self.model.model.pixel_level_module.encoder.channels = model_dim
         self.model.model.pixel_level_module.decoder = Mask2FormerPixelDecoder(model_config, feature_channels=model_dim)
+
         self.model.eval()
 
     def freeze_model(self):
@@ -231,6 +231,33 @@ class Mask2FormerModel(torch.nn.Module):
         for param in self.model.model.pixel_level_module.encoder.parameters():
             param.requires_grad = True
 
+    def post_process_model_output(self, outputs, do_final_resize=False):
+        """
+        inspired from post_process_semantic_segmentation, returns differentiable logits
+        """
+        class_queries_logits = outputs.class_queries_logits  # [batch_size, num_queries, num_classes+1]
+        masks_queries_logits = outputs.masks_queries_logits  # [batch_size, num_queries, height, width]
+
+        # Scale back to preprocessed image size - (224, 224) for all models
+        masks_queries_logits = torch.nn.functional.interpolate(
+            masks_queries_logits, size=(224, 224), mode="bilinear", align_corners=False
+        )
+
+        # Remove the null class `[..., :-1]`
+        masks_classes = class_queries_logits.softmax(dim=-1)[..., :-1]
+        masks_probs = masks_queries_logits.sigmoid()  # [batch_size, num_queries, height, width]
+
+        # Semantic segmentation logits of shape (batch_size, num_classes, height, width)
+        segmentation_logits = torch.einsum("bqc, bqhw -> bchw", masks_classes, masks_probs)
+
+        if do_final_resize:
+            segmentation_logits = torch.nn.functional.interpolate(
+                segmentation_logits.unsqueeze(dim=0), size=self.img_shape, mode="bilinear", align_corners=False
+            )
+
+        semantic_map = segmentation_logits.argmax(dim=1)
+        return semantic_map, segmentation_logits
+
     def forward(self, x):
         """Forward pass of the model.
 
@@ -239,17 +266,12 @@ class Mask2FormerModel(torch.nn.Module):
         Returns:
             logits: Output logits of shape (b, h, w)
         """
+        # print("x", x["pixel_values"].shape)
+        outputs = self.model(**x)
 
-        # Uncomment if you want to use the model's transforms
-        # if clean_str(self.model_name) == "phikonv2":
-        #    x = self.transform(x, return_tensors="pt")["pixel_values"]
-        # else:
-        #    x = self.transform(x)
+        # semantic_seg = self.image_processor.post_process_semantic_segmentation(outputs, target_sizes=[self.img_shape])[
+        #    0
+        # ]
 
-        out = self.model(**x)
-        batch_size = out.class_queries_logits.shape[0]
-        print('out.class_queries_logits requires_grad', out.class_queries_logits.requires_grad) # True
-        print('out.mask_queries_logits requires_grad', out.masks_queries_logits.requires_grad) # True
-
-        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[self.img_shape for _ in range(batch_size)])
-        return semantic_seg
+        semantic_seg, segmentation_logits = self.post_process_model_output(outputs)
+        return semantic_seg, segmentation_logits

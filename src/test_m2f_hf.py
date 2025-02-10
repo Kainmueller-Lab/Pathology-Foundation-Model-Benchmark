@@ -21,7 +21,7 @@ from benchmark.mask2former import load_m2f_model_and_transform
 
 
 def normalize(x):
-    return (x - x.min()) / (x.max() - x.min() + 1e-4)
+    return (x - x.min()) / (x.max() - x.min() + 1e-5)
 
 
 if __name__ == "__main__":
@@ -38,17 +38,13 @@ if __name__ == "__main__":
 
     model_name = "uni2"
     print(f"Instantiating model {model_name}...")
-    model = Mask2FormerModel(
-        model_name=model_name,
-        num_classes=num_classes
-    )
+    model = Mask2FormerModel(model_name=model_name, num_classes=num_classes)
     model.cuda()
     dataset = LMDBDataset(
         path="/fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/",
     )
 
-    #for i, img_idx in enumerate([1, 11, 111, 113]):
-    for i, img_idx in enumerate([1]):
+    for i, img_idx in enumerate([1, 11, 111, 113]):
         sample = dataset[img_idx]
         image_cpu = sample["image"]
         image = torch.Tensor(image_cpu).cuda()
@@ -57,18 +53,21 @@ if __name__ == "__main__":
 
         print("image", image.shape, image.min(), image.max())
         processed_image = model.image_processor(image, return_tensors="pt")
-        image = {
+        processed_image = {
             "pixel_values": processed_image["pixel_values"].cuda(),
             "pixel_mask": processed_image["pixel_mask"].cuda(),
         }
         print("ground_truth", ground_truth.shape, ground_truth.min(), ground_truth.max())
 
-        seg_logits = model(image)[0]  # .unsqueeze(0))
+        seg, seg_logits = model(processed_image)  # .unsqueeze(0))
         seg_logits_cpu = seg_logits.detach().cpu().numpy()
+        seg = seg.detach().cpu().numpy()
         print("segmentation_logits shape, min, max", seg_logits_cpu.shape, seg_logits_cpu.min(), seg_logits_cpu.max())
+        print("seg_map shape, min, max", seg.shape, seg.min(), seg.max())
+        seg_armax = np.argmax(seg_logits_cpu, axis=1, keepdims=True)
 
         # get the unique values and their counts
-        unique, counts = np.unique(seg_logits_cpu, return_counts=True)
+        unique, counts = np.unique(seg, return_counts=True)
         vals_count_seg = {el: count for el, count in zip(unique, counts) if count > min_count}
 
         unique, counts = np.unique(ground_truth, return_counts=True)
@@ -77,28 +76,16 @@ if __name__ == "__main__":
         print("GT", vals_count_gt)
         print("PRED", vals_count_seg)
 
-        f, a = plt.subplots(1, 3)
+        f, a = plt.subplots(1, 4)
         f.set_size_inches(25, 5)
         a[0].imshow(normalize(image_cpu.transpose(1, 2, 0)))
         a[1].imshow(normalize(ground_truth))
-        a[2].imshow(normalize(seg_logits_cpu))
-
+        a[2].imshow(normalize(seg[0, :, :]))
+        a[3].imshow(normalize(seg_logits_cpu[0, :3, :, :].transpose(1, 2, 0)))
         plt.savefig(os.path.join(outdir, f"segmented_image_{i}.png"), bbox_inches="tight")
 
-        """
-        f, a = plt.subplots(1, 7)
-        f.set_size_inches(20, 5)
-        a[0].imshow(normalize(image_cpu.transpose(1, 2, 0)))
-        a[1].imshow(normalize(ground_truth))
-        a[2].imshow(normalize(exp[0, 0, :, :]))
-        a[3].imshow(normalize(exp[0, 1, :, :]))
-        a[4].imshow(normalize(exp[0, 2, :, :]))
-        a[5].imshow(normalize(exp[0, 3, :, :]))
-        a[6].imshow(normalize(exp[0, 50, :, :]))
-        plt.savefig(os.path.join(outdir, f"segmented_exp_{i}.png"), bbox_inches="tight")
-        """
-
         # Assuming `segmentation_logits` is the predicted segmentation map and `ground_truth` is the actual label
-        # score = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
-        # score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
-        # print("Jaccard Score:", score_value)
+        if seg_logits.max() < num_classes:
+            score = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
+            score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
+            print("Jaccard Score:", score_value)
