@@ -1,6 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 import numpy as np
 from time import time
 from omegaconf import OmegaConf
@@ -12,13 +13,15 @@ from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
 from benchmark.eval import Eval
 from benchmark.simple_segmentation_model import *
+from benchmark.mask2former import *
 import argparse
 import h5py
 
+from datetime import datetime
+from matplotlib import pyplot as plt
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
-
 
 def train(cfg):
     # prepare directories for writing training infos
@@ -102,6 +105,13 @@ def train(cfg):
             class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False
         )
 
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            print(f"Parameter {name} does not require gradients!")
+
+    print('MODEL PARAMS', sum(1 for p in model.parameters()))
+    print('MODEL PARAMS REQUIRE GRAD', sum(p.requires_grad for p in model.parameters()))
+
     # this maybe needs to change depending on how the model_wrapper is implemented
     optimizer = getattr(torch.optim, cfg.optimizer.name)(
         list(model.parameters()),**cfg.optimizer.params
@@ -128,6 +138,10 @@ def train(cfg):
     print("Start training")
     np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
     loss_tmp = []
+
+    outdir = "outputs/test_m2f_hf_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M"))
+    os.makedirs(outdir, exist_ok=True)
+
     while step < cfg.training_steps:
         model.train() # maybe change depending on how the model_wrapper is implemented
         for sample_dict in train_dataloader:
@@ -137,14 +151,74 @@ def train(cfg):
             img = img.to(device)
             semantic_mask = semantic_mask.to(device)
             instance_mask = instance_mask.to(device)
+            
             img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(
-                img, semantic_mask, instance_mask
+                 img, semantic_mask, instance_mask
             )
+
             with torch.autocast(device_type=device.type, dtype=torch.float16):
-                pred_mask = model(img_aug)
+                if cfg.model.model_wrapper == "Mask2FormerModel":
+                    # make tensors a lists of images
+                    img_list = list(img_aug)
+                    semantic_mask_list = list(semantic_mask_aug)
+                    input_dict = model.image_processor(img_list, semantic_mask_list, return_tensors="pt")
+
+                    print('PIX VAL SHAPE:', input_dict["pixel_values"].shape)
+                    print('PIX MASK SHAPE:', input_dict["pixel_mask"].shape)
+                    print('MASK LABELS SHAPE:', [x.shape for x in input_dict["mask_labels"]])
+                    print('CLASS LABELS SHAPE:', [x.shape for x in input_dict["class_labels"]])
+
+                    # make plot with subfigures for pixel values, pixel mask and all mask labels
+                    f, a = plt.subplots(2, 10)
+                    f.set_size_inches(25, 5)
+                    a[0,0].imshow(input_dict["pixel_values"][0].permute(1, 2, 0).cpu().numpy())
+                    a[0,1].imshow(input_dict["pixel_mask"][0].cpu().numpy())
+                    for i in range(len(input_dict["mask_labels"])):
+                        a[1,i].imshow(input_dict["mask_labels"][0][i].cpu().numpy()) 
+                    plt.show()
+                    plt.savefig(os.path.join(outdir, f"inputs_{step}.png"), bbox_inches="tight")
+
+                    input_dict = {
+                        "pixel_values": input_dict["pixel_values"].to(device),
+                        "pixel_mask": input_dict["pixel_mask"].to(device),
+                        "mask_labels": [x.to(device) for x in input_dict["mask_labels"]],
+                        "class_labels": [x.to(device) for x in input_dict["class_labels"]]
+                    }
+
+                    print(f"IMG requires_grad:", input_dict["pixel_values"].requires_grad)
+                    input_dict["pixel_values"].to(device)
+                    pred_mask = model(input_dict)
+                    pred_mask = torch.stack(pred_mask)
+                    print('pred_mask requires_grad', pred_mask.requires_grad) # False --> needs to be True
+
+                    # reorganize predicted mask to be tensor of shape [batch_size, num_classes, height, width]
+                    pred_mask = F.one_hot(pred_mask, num_classes=len(label_dict))
+                    pred_mask = pred_mask.permute(0, 3, 1, 2).contiguous()
+                    pred_mask = pred_mask.float()
+                    pred_mask.requires_grad_() # maybe doesn't make sense to do it here, if before it is not attached to the graph?
+                    print('pred_mask requires_grad', pred_mask.requires_grad)
+                else:
+                    pred_mask = model(img_aug)
+
+                print('PRED MASK SHAPE', pred_mask.shape) # torch.Size([bs, num_classes, 224, 224])
+                print('SEMANTIC MASK SHAPE', semantic_mask_aug.shape) # torch.Size([2, 224, 224])
+                print('PRED MASK DTYPE', pred_mask.dtype) # torch.float32
+                print('SEMANTIC MASK DTYPE', semantic_mask_aug.dtype) # torch.uint8
+
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
+                print('Loss', loss)
+                print(f"Loss requires_grad: {loss.requires_grad}")
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()
+                for param in model.parameters():
+                    if param.grad is None:
+                        # print(f"Param {param} has no gradient after backward")
+                        # Result: no params have grad!!!
+                        pass
+                    else:
+                        print(f"Param {param} has gradient after backward")
+                        if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
+                            print(f"NaN or Inf found in gradients for {param}")
                 scaler.step(optimizer)
                 scaler.update()
                 lr_scheduler.step()
@@ -230,7 +304,7 @@ def train(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/schuerch_config_debug.yaml")
+    parser.add_argument("--config", type=str, default="configs/config.yaml")
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
     train(cfg)

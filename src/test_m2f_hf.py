@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from benchmark import utils
 from benchmark.lmdb_dataset import LMDBDataset
 from benchmark.mask2former import Mask2FormerModel
-from benchmark.mask2former import load_model_and_transform
+from benchmark.mask2former import load_m2f_model_and_transform
 
 
 def normalize(x):
@@ -33,21 +33,22 @@ if __name__ == "__main__":
     num_classes = 7
     min_count = 10
 
-    outdir = "../../outputs/test_m2f_hf_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M"))
+    outdir = "outputs/test_m2f_hf_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M"))
     os.makedirs(outdir, exist_ok=True)
 
     model_name = "uni2"
     print(f"Instantiating model {model_name}...")
     model = Mask2FormerModel(
         model_name=model_name,
-        num_classes=num_classes,
+        num_classes=num_classes
     )
     model.cuda()
     dataset = LMDBDataset(
         path="/fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/",
     )
 
-    for i, img_idx in enumerate([1, 11, 111, 113]):
+    #for i, img_idx in enumerate([1, 11, 111, 113]):
+    for i, img_idx in enumerate([1]):
         sample = dataset[img_idx]
         image_cpu = sample["image"]
         image = torch.Tensor(image_cpu).cuda()
@@ -62,7 +63,7 @@ if __name__ == "__main__":
         }
         print("ground_truth", ground_truth.shape, ground_truth.min(), ground_truth.max())
 
-        seg_logits = model(image)  # .unsqueeze(0))
+        seg_logits = model(image)[0]  # .unsqueeze(0))
         seg_logits_cpu = seg_logits.detach().cpu().numpy()
         print("segmentation_logits shape, min, max", seg_logits_cpu.shape, seg_logits_cpu.min(), seg_logits_cpu.max())
 
@@ -98,6 +99,6 @@ if __name__ == "__main__":
         """
 
         # Assuming `segmentation_logits` is the predicted segmentation map and `ground_truth` is the actual label
-        score = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
-        score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
-        print("Jaccard Score:", score_value)
+        # score = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
+        # score_value = score(seg_logits.cpu(), torch.tensor(ground_truth))
+        # print("Jaccard Score:", score_value)

@@ -23,6 +23,7 @@ from timm.data.constants import (
 )
 from transformers import MaskFormerImageProcessor
 from benchmark.simple_segmentation_model import HF_TOKEN, MockModel, clean_str, get_model_dim
+import numpy as np
 
 
 def get_model_dim(model, img_size):
@@ -58,7 +59,7 @@ def get_model_dim(model, img_size):
     return model_dims
 
 
-def load_model_and_transform(model_name):
+def load_m2f_model_and_transform(model_name):
     """
     Load the specified model and a transform object to prepare input data according to the model's
     requirements.
@@ -189,7 +190,7 @@ class Mask2FormerModel(torch.nn.Module):
     def __init__(self, model_name, num_classes, img_shape=(224, 224)):
         super().__init__()
         self.model_name = model_name
-        self.backbone, self.transform, model_dim = load_model_and_transform(model_name)
+        self.backbone, self.transform, model_dim = load_m2f_model_and_transform(model_name)
         self.backbone = ModelWrapper(self.backbone, self.transform)
         self.num_classes = num_classes
         self.img_shape = img_shape
@@ -200,12 +201,21 @@ class Mask2FormerModel(torch.nn.Module):
             size=img_shape,
             image_mean=IMAGENET_DEFAULT_MEAN,
             image_std=IMAGENET_DEFAULT_STD,
-            num_labels=num_classes,
+            num_labels=num_classes - 1, # exclude background
         )
 
-        model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
+        #model_config = Mask2FormerConfig.from_pretrained("facebook/mask2former-swin-base-IN21k-ade-semantic")
+        model_config = Mask2FormerConfig.from_pretrained('/fast/AG_Kainmueller/nkoreub/Pathology-Foundation-Model-Benchmark/configs/mask2former_lizard.json')
+        model_config.num_labels = self.num_classes - 1 # because m2f adds weight for background class during loss computation
 
         self.model = Mask2FormerForUniversalSegmentation(model_config)
+
+        #print('MODEL CHILDREN')
+        #for name, child in self.model.named_children():
+        #    print(name, child)
+
+        # --> reveals: class_predictor Linear(in_features=256, out_features=7, bias=True)
+
         self.model.model.pixel_level_module.encoder = self.backbone
         self.model.model.pixel_level_module.encoder.channels = model_dim
         self.model.model.pixel_level_module.decoder = Mask2FormerPixelDecoder(model_config, feature_channels=model_dim)
@@ -237,5 +247,9 @@ class Mask2FormerModel(torch.nn.Module):
         #    x = self.transform(x)
 
         out = self.model(**x)
-        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[self.img_shape])[0]
+        batch_size = out.class_queries_logits.shape[0]
+        print('out.class_queries_logits requires_grad', out.class_queries_logits.requires_grad) # True
+        print('out.mask_queries_logits requires_grad', out.masks_queries_logits.requires_grad) # True
+
+        semantic_seg = self.image_processor.post_process_semantic_segmentation(out, target_sizes=[self.img_shape for _ in range(batch_size)])
         return semantic_seg
