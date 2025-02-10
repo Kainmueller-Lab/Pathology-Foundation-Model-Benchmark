@@ -1,0 +1,22 @@
+dir_prefix: lizard_inference
+experiment_path: /fast/AG_Kainmueller/jannik/patho_benchmark/inference
+save_samples: True  # True, interger or None
+split: test  # test, val, train
+save_inputs: True
+save_predictions: True
+save_embeddings: True
+multiprocessing: true
+compute_metrics: True
+num_workers: 4
+
+dataset:
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/
+  pretrained_path: None
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/lizard_default_train_test_val_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/label_dict.json
+  batch_size: 128
+  num_workers: 0
+
+model:
+  model_wrapper: SimpleSegmentationModel
+  backbone: uni,

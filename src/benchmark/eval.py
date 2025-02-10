@@ -5,6 +5,7 @@ import torch
 from tqdm import tqdm
 import pandas as pd
 from skimage.measure import regionprops_table
+import h5py
 from benchmark.metric_utils import (
     accuracy,
     precision,
@@ -29,8 +30,8 @@ def extract_numbers_from_string(s):
 
 class Eval:
     def __init__(
-            self, label_dict, instance_level=True, pixel_level=False, save_dir=None, fname=None
-        ):
+            self, label_dict, instance_level=True, pixel_level=False, save_dir=None, fname=None,
+            save_samples=False, save_embeddings=False):
         """
         Initializes the evaluation pipeline.
 
@@ -43,6 +44,8 @@ class Eval:
         """
         self.instance_level = instance_level
         self.pixel_level = pixel_level
+        self.save_samples = save_samples
+        self.save_embeddings = save_embeddings
         self.label_dict = {int(k): v for k, v in label_dict.items()}
         self.label_dict_rev = {v: int(k) for k, v in label_dict.items()}
         self.save_dir = save_dir
@@ -66,7 +69,14 @@ class Eval:
         """
         print("Running inference for computing metrics...")
         pred_dfs = []
+        if self.save_samples:
+            snap_dir = os.path.join(self.save_dir, 'samples')
+            os.makedirs(snap_dir, exist_ok=True)
+        if hasattr(model, "return_embeddings"):
+            if model.return_embeddings and self.save_embeddings:
+                save_embeddings = True
         model.eval()
+        sample_idx = 0
         with torch.no_grad():
             for sample_dict in tqdm(dataloader):
                 img = sample_dict["image"].float().to(device)
@@ -75,7 +85,10 @@ class Eval:
                 sample_name = sample_dict.get("sample_name", None)
 
                 # Run model to get predictions
-                pred_logits = model(img)
+                if save_embeddings:
+                    pred_logits, patch_embeddings = model(img)
+                else:
+                    pred_logits = model(img)
                 # Assuming pred_logits is (batch_size, num_classes, H, W)
                 pred_probs = torch.softmax(pred_logits, dim=1).cpu().numpy()
 
@@ -93,6 +106,17 @@ class Eval:
                     if self.pixel_level:
                         # Pixel-level evaluation (not implemented)
                         pass
+                    if self.save_samples:
+                        with h5py.File(os.path.join(snap_dir, f"sample_{sample_idx}_{sample_name[i]}.hdf"), "w") as f:
+                            f.create_dataset("img", data=img[i].cpu().detach().numpy())
+                            f.create_dataset("pred", data=pred_probs[i].cpu().detach().numpy())
+                            f.create_dataset("semantic_mask", data=semantic_mask[i].cpu().detach().numpy())
+                            if instance_mask is not None:
+                                f.create_dataset("instance_mask", data=instance_mask[i].cpu().detach().numpy())
+                            if save_embeddings:
+                                f.create_dataset("patch_embeddings", data=patch_embeddings.cpu().detach().numpy())
+                    sample_idx += 1
+
         pred_df = pd.concat(pred_dfs, ignore_index=True)
         if self.save_dir:
             os.makedirs(self.save_dir, exist_ok=True)
