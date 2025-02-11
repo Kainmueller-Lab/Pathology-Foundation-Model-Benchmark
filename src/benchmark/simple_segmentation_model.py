@@ -297,7 +297,10 @@ def load_model_and_transform(
         model_dim = 1024
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
-    model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
+    if hasattr(model_cfg, "channels"):
+        model_dim = model_cfg.channels
+    else:
+        model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
     return model, transform, model_dim
 
@@ -344,16 +347,18 @@ def get_model_dim(model, img_size, features_only=False):
             else:
                 out_list = model(mock_input)
                 model_dim = []
-                for out in out_list[:4]:
-                    if out is not None and hasattr(out, "shape"):
-                        print("out.shape", out.shape)
-                        if len(out.shape) > 1:
-                            dim_idx = 1
-                        else:
-                            dim_idx = 0
-                        model_dim.append(out.shape[dim_idx])
-                    else:
-                        print("ABNORMAL OUT:", out)
-                while len(model_dim) < 4:
-                    model_dim.append(model_dim[-1])
+                try:
+                    for out in out_list[:4]:
+                        if out is not None:
+                            if len(out.shape) > 1:
+                                dim_idx = 1
+                            else:
+                                dim_idx = 0
+                            model_dim.append(out.shape[dim_idx])
+                    while len(model_dim) < 4:
+                        model_dim.append(model_dim[-1])
+
+                except ValueError as e:
+                    print(e)
+
     return model_dim

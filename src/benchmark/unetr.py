@@ -130,7 +130,7 @@ class UnetR(nn.Module):
         self.model, self.transform, model_dim = load_model_and_transform(model_name, features_only=True)
         self.model_name = model_name
         self.patch_size = patch_size
-        if isinstance(model_dim, list):
+        if not isinstance(model_dim, int):
             self.embed_dim = model_dim[-1]
         else:
             self.embed_dim = model_dim

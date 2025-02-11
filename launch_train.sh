@@ -7,7 +7,6 @@
 #$ -pe smp 2
 #$ -l m_mem_free=65G
 #$ -l h_rt=30:00:00
-#$ -m ea
 #$ -A kainmueller
 
 

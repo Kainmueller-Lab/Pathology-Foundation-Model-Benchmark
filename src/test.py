@@ -60,14 +60,6 @@ if __name__ == "__main__":
     print("image", image.shape, image.min(), image.max())
     print("gt", gts[0].shape, gts[0].min(), gts[0].max())
 
-    patch_embeddings = model.model(image)
-    if hasattr(patch_embeddings, "shape"):
-        print("patch_embeddings", patch_embeddings.shape)
-    else:
-        for el in patch_embeddings:
-            if el is not None:
-                print(el.shape)
-
     output = model(image)
     output = output.detach().cpu().numpy()
     print("output shape, min, max", output.shape, output.min(), output.max())

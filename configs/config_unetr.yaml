@@ -20,7 +20,7 @@ dataset:
   
 model:
   model_wrapper: UnetR
-  backbone: phikonv2 #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
+  backbone: provgigapath #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
   unfreeze_backbone: false
 
 optimizer:

@@ -1,3 +1,4 @@
 url: "owkin/phikon-v2"
 patch_size: 16
 img_size: 224
+channels: [1024, 1024, 1024, 1024]
