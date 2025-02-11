@@ -11,9 +11,11 @@ from benchmark.augmentations import Augmenter
 from benchmark.init_dist import init_distributed
 from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
 from benchmark.eval import Eval
-from benchmark.simple_segmentation_model import *
+from benchmark.simple_segmentation_model import SimpleSegmentationModel, load_model_and_transform, MockModel
+from benchmark.unetr import UnetR
 import argparse
 import h5py
+from datetime import datetime
 
 from benchmark.utils import get_weighted_sampler
 
@@ -23,13 +25,14 @@ torch.backends.cudnn.benchmark = True
 
 def train(cfg):
     # prepare directories for writing training infos
-    log_dir = os.path.join(cfg.experiment_path, cfg.experiment,'train')
+    experiment_name = f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%m%d_%H%M')}"
+    log_dir = os.path.join(cfg.experiment_path, experiment_name, "train")
     checkpoint_path = os.path.join(log_dir, "checkpoints")
-    snap_dir = os.path.join(log_dir,'snaps')
-    os.makedirs(snap_dir,exist_ok=True)
-    os.makedirs(checkpoint_path,exist_ok=True)
-    cfg.writer_dir = os.path.join(log_dir,'summary',str(time()))
-    os.makedirs(cfg.writer_dir,exist_ok=True)
+    snap_dir = os.path.join(log_dir, "snaps")
+    os.makedirs(snap_dir, exist_ok=True)
+    os.makedirs(checkpoint_path, exist_ok=True)
+    cfg.writer_dir = os.path.join(log_dir, "summary", str(time()))
+    os.makedirs(cfg.writer_dir, exist_ok=True)
 
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     model_wrapper = eval(cfg.model.model_wrapper)
@@ -38,22 +41,26 @@ def train(cfg):
         model.unfreeze_model()
 
     evaluater = Eval(
-        label_dict, instance_level=True, pixel_level=False,
+        label_dict,
+        instance_level=True,
+        pixel_level=False,
         save_dir=os.path.join(log_dir, "validation_results"),
-        fname="validation_metrics.csv"
+        fname="validation_metrics.csv",
     )
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
+
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
+
     # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
     #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
     # initialize dist
-    if 'RANK' in os.environ:
+    if "RANK" in os.environ:
         LOCAL_RANK, LOCAL_WORLD_SIZE, RANK, WORLD_SIZE = init_distributed()
-        device = torch.device(f'cuda:{LOCAL_RANK}')
+        device = torch.device(f"cuda:{LOCAL_RANK}")
         model = model.cuda()
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK, find_unused_parameters=True)
     else:
@@ -63,16 +70,16 @@ def train(cfg):
     print(f"Device: {device}")
 
     # log only on rank 0
-    if 'RANK' in os.environ and LOCAL_RANK==0 or "mock" not in cfg.experiment.lower():
+    if "RANK" in os.environ and LOCAL_RANK == 0 or "mock" not in experiment_name.lower():
         logging = True
         wandb.init(
-            name=cfg.experiment,
+            name=experiment_name,
             project=cfg.project,
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
             dir=cfg.writer_dir,
-            mode=cfg.get('wandb_mode', 'online'),
-            )
+            mode=cfg.get("wandb_mode", "online"),
+        )
     else:
         logging = False
 
@@ -89,45 +96,42 @@ def train(cfg):
         train_sampler = get_weighted_sampler(train_dset, classes=classes)
 
     train_dataloader = DataLoader(
-        train_dset, batch_size=cfg.dataset.batch_size, pin_memory=True,
+        train_dset,
+        batch_size=cfg.dataset.batch_size,
+        pin_memory=True,
         worker_init_fn=worker_init_fn,
         prefetch_factor=8 if cfg.multiprocessing else None,
-        num_workers=cfg.num_workers-1 if cfg.multiprocessing else 0,
+        num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
         sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
-        shuffle=not cfg.dataset.uniform_class_sampling
+        shuffle=not cfg.dataset.uniform_class_sampling,
     )
-    val_dataloader = DataLoader(
-        val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
-    )
-    test_dataloader = DataLoader(
-        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0
-    )
+    val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
+    test_dataloader = DataLoader(test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
         loss_fn = EMAInverseClassFrequencyLoss(
-            loss_fn=loss_fn, num_classes=len(label_dict),
+            loss_fn=loss_fn,
+            num_classes=len(label_dict),
             exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
-            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False
+            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
         )
 
     # this maybe needs to change depending on how the model_wrapper is implemented
-    optimizer = getattr(torch.optim, cfg.optimizer.name)(
-        list(model.parameters()),**cfg.optimizer.params
-    )
+    optimizer = getattr(torch.optim, cfg.optimizer.name)(list(model.parameters()), **cfg.optimizer.params)
 
     lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
-        optimizer, [ # linear warmup
+        optimizer,
+        [  # linear warmup
             torch.optim.lr_scheduler.LinearLR(
-                optimizer, start_factor=0.1, end_factor=1.0,
-                total_iters=cfg.optimizer.warmup_steps
+                optimizer, start_factor=0.1, end_factor=1.0, total_iters=cfg.optimizer.warmup_steps
             ),
-        getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(
-            optimizer, **cfg.scheduler.params
-        )], milestones=[cfg.optimizer.warmup_steps]
+            getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(optimizer, **cfg.scheduler.params),
+        ],
+        milestones=[cfg.optimizer.warmup_steps],
     )
     # save parameters
-    with open(os.path.join(cfg.experiment_path, cfg.experiment, 'config.yaml'), 'w') as f:
+    with open(os.path.join(cfg.experiment_path, experiment_name, "config.yaml"), "w") as f:
         OmegaConf.save(config=cfg, f=f)
 
     # training pipeline
@@ -138,7 +142,7 @@ def train(cfg):
     np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
     loss_tmp = []
     while step < cfg.training_steps:
-        model.train() # maybe change depending on how the model_wrapper is implemented
+        model.train()  # maybe change depending on how the model_wrapper is implemented
         for sample_dict in train_dataloader:
             img = sample_dict["image"].float()
             semantic_mask = sample_dict["semantic_mask"]
@@ -146,9 +150,7 @@ def train(cfg):
             img = img.to(device)
             semantic_mask = semantic_mask.to(device)
             instance_mask = instance_mask.to(device)
-            img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(
-                img, semantic_mask, instance_mask
-            )
+            img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(img, semantic_mask, instance_mask)
             # augment_fn adds an extra dimension to the masks. Remove it, if it exists
             # the extra dimension throws an error at the loss function
             semantic_mask_aug = semantic_mask_aug.squeeze(1)  # Remove the extra dimension
@@ -164,21 +166,22 @@ def train(cfg):
                 optimizer.zero_grad()
                 loss_tmp.append(loss.cpu().detach().numpy())
                 if logging:
-                    wandb.log({
-                        "train_loss": loss_tmp[-1] / float(WORLD_SIZE),
-                        "lr": optimizer.param_groups[0]["lr"],
-                    }, step=step)
+                    wandb.log(
+                        {
+                            "train_loss": loss_tmp[-1] / float(WORLD_SIZE),
+                            "lr": optimizer.param_groups[0]["lr"],
+                        },
+                        step=step,
+                    )
                 print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
             # log at cfg.log_interval or at the end of training
-            if (step % cfg.log_interval == 0) or (step == cfg.training_steps-1):
+            if (step % cfg.log_interval == 0) or (step == cfg.training_steps - 1):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
-                logging_dict, classwise_dict = evaluater.compute_metrics(
-                    model, val_dataloader, device
-                )
-                logging_dict = {"validation/"+k: v for k, v in logging_dict.items()}
-                classwise_dict = {k+"_val": v for k, v in classwise_dict.items()}
+                logging_dict, classwise_dict = evaluater.compute_metrics(model, val_dataloader, device)
+                logging_dict = {"validation/" + k: v for k, v in logging_dict.items()}
+                classwise_dict = {k + "_val": v for k, v in classwise_dict.items()}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
@@ -187,41 +190,31 @@ def train(cfg):
                 if logging:
                     wandb.log(logging_dict, step=step)
                     wandb.log(classwise_dict, step=step)
-                if logging or 'RANK' not in os.environ:
-                    model_path = os.path.join(
-                        checkpoint_path, f"checkpoint_step_{step}.pth"
-                    )
+                if logging or "RANK" not in os.environ:
+                    model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
                     torch.save(model.state_dict(), model_path)
                     # save img, pred_mask, semantic_mask, instance_mask to hdf
                     with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
                         f.create_dataset("img", data=img.cpu().detach().numpy())
                         f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy())
+                        f.create_dataset("semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy())
+                        f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy())
                         f.create_dataset(
-                            "semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy()
-                        )
-                        f.create_dataset(
-                            "img_aug", data=img_aug.cpu().detach().numpy()
-                        )
-                        f.create_dataset(
-                            "semantic_mask_aug",
-                            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy()
+                            "semantic_mask_aug", data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy()
                         )
                         if instance_mask is not None:
                             f.create_dataset(
-                                "instance_mask",
-                                data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                                "instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
                             )
                             f.create_dataset(
                                 "instance_mask_aug",
-                                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
+                                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
                             )
                 if hasattr(cfg, "primary_metric"):
-                    primary_metric_history.append(logging_dict["validation/"+cfg.primary_metric])
-                if hasattr(cfg, "primary_metric") and (logging or 'RANK' not in os.environ):
-                    if max(primary_metric_history) == logging_dict["validation/"+cfg.primary_metric]:
-                        model_path = os.path.join(
-                            checkpoint_path, f"best_model.pth"
-                        )
+                    primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
+                if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
+                    if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
+                        model_path = os.path.join(checkpoint_path, f"best_model.pth")
                         torch.save(model.state_dict(), model_path)
                         best_checkpoint_step = step
             step += 1
@@ -234,7 +227,7 @@ def train(cfg):
     if logging:
         logging_dict["best_checkpoint_step"] = best_checkpoint_step
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
-        classwise_dict = {k+"_test": v for k, v in classwise_dict.items()}
+        classwise_dict = {k + "_test": v for k, v in classwise_dict.items()}
         wandb.log(logging_dict)
         wandb.log(classwise_dict)
     wandb.finish()

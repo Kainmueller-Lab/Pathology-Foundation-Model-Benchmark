@@ -1,9 +1,10 @@
-# adapted from CellViT 
+# adapted from CellViT
 # https://github.com/TIO-IKIM/CellViT-plus-plus/blob/main/cellvit/models/cell_segmentation/cellvit.py
+import torch
 
 from collections import OrderedDict
+
 from benchmark.simple_segmentation_model import load_model_and_transform, clean_str
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -126,10 +127,13 @@ class UnetR(nn.Module):
     ):
         # For simplicity, we will assume that extract layers must have a length of 4
         super().__init__()
-        self.model, self.transform, model_dim = load_model_and_transform(model_name)
+        self.model, self.transform, model_dim = load_model_and_transform(model_name, features_only=True)
         self.model_name = model_name
         self.patch_size = patch_size
-        self.embed_dim = model_dim
+        if isinstance(model_dim, list):
+            self.embed_dim = model_dim[-1]
+        else:
+            self.embed_dim = model_dim
         self.drop_rate = drop_rate
 
         if self.embed_dim < 512:
@@ -159,9 +163,7 @@ class UnetR(nn.Module):
             Deconv2DBlock(self.embed_dim, self.bottleneck_dim, dropout=self.drop_rate)
         )  # skip connection 3
 
-        self.nuclei_type_maps_decoder = self.create_upsampling_branch(
-            num_classes
-        )
+        self.nuclei_type_maps_decoder = self.create_upsampling_branch(num_classes)
 
         # self.init_weights()
 
@@ -174,17 +176,18 @@ class UnetR(nn.Module):
             logits: Output logits of shape (b, num_classes, h, w)
         """
         if clean_str(self.model_name) == "phikonv2":
-            x = self.transform(x, return_tensors="pt")['pixel_values']
-        else: 
+            x = self.transform(x, return_tensors="pt")["pixel_values"]
+        else:
             x = self.transform(x)
-        patch_embeddings = self.model.forward_patches(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
-        # TODO fix this by getting the actual last 4 embeddings
-        patch_embeddings = [patch_embeddings]*4
+        patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
+
+        # Debug print
+        # for layer in patch_embeddings:
+        #    print("layer", layer.shape)
+
         z0, z1, z2, z3, z4 = x, *patch_embeddings
 
-        logits = self._forward_upsample(
-            z0, z1, z2, z3, z4, self.nuclei_type_maps_decoder
-        )
+        logits = self._forward_upsample(z0, z1, z2, z3, z4, self.nuclei_type_maps_decoder)
         # maybe resize when patch size is 14?
         return logits
 
@@ -218,11 +221,9 @@ class UnetR(nn.Module):
         b1 = self.decoder1(z1)
         b1 = branch_decoder.decoder1_upsampler(torch.cat([b1, b2], dim=1))
         b0 = self.decoder0(z0)
-        if b0.shape != b1.shape: # happens when patch size is 14, then b1 is 256x256 and b0 is 224x224
-            _,_,h,w = b0.shape
-            b1 = nn.functional.interpolate(
-                b1, size=(h, w), mode="bilinear", align_corners=False
-            ) 
+        if b0.shape != b1.shape:  # happens when patch size is 14, then b1 is 256x256 and b0 is 224x224
+            _, _, h, w = b0.shape
+            b1 = nn.functional.interpolate(b1, size=(h, w), mode="bilinear", align_corners=False)
         branch_output = branch_decoder.decoder0_header(torch.cat([b0, b1], dim=1))
 
         return branch_output
@@ -245,15 +246,9 @@ class UnetR(nn.Module):
             output_padding=0,
         )
         decoder3_upsampler = nn.Sequential(
-            Conv2DBlock(
-                self.bottleneck_dim * 2, self.bottleneck_dim, dropout=self.drop_rate
-            ),
-            Conv2DBlock(
-                self.bottleneck_dim, self.bottleneck_dim, dropout=self.drop_rate
-            ),
-            Conv2DBlock(
-                self.bottleneck_dim, self.bottleneck_dim, dropout=self.drop_rate
-            ),
+            Conv2DBlock(self.bottleneck_dim * 2, self.bottleneck_dim, dropout=self.drop_rate),
+            Conv2DBlock(self.bottleneck_dim, self.bottleneck_dim, dropout=self.drop_rate),
+            Conv2DBlock(self.bottleneck_dim, self.bottleneck_dim, dropout=self.drop_rate),
             nn.ConvTranspose2d(
                 in_channels=self.bottleneck_dim,
                 out_channels=256,
