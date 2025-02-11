@@ -25,8 +25,7 @@ torch.backends.cudnn.benchmark = True
 
 def train(cfg):
     # prepare directories for writing training infos
-    experiment_name = f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%m%d_%H%M')}"
-    log_dir = os.path.join(cfg.experiment_path, experiment_name, "train")
+    log_dir = os.path.join(cfg.experiment_path, cfg.experiment, "train")
     checkpoint_path = os.path.join(log_dir, "checkpoints")
     snap_dir = os.path.join(log_dir, "snaps")
     os.makedirs(snap_dir, exist_ok=True)
@@ -70,10 +69,10 @@ def train(cfg):
     print(f"Device: {device}")
 
     # log only on rank 0
-    if "RANK" in os.environ and LOCAL_RANK == 0 or "mock" not in experiment_name.lower():
+    if "RANK" in os.environ and LOCAL_RANK == 0 or "mock" not in cfg.experiment.lower():
         logging = True
         wandb.init(
-            name=experiment_name,
+            name=cfg.experiment,
             project=cfg.project,
             entity="kainmueller-lab",
             config=OmegaConf.to_container(cfg),
@@ -106,7 +105,9 @@ def train(cfg):
         shuffle=not cfg.dataset.uniform_class_sampling,
     )
     val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
-    test_dataloader = DataLoader(test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
+    test_dataloader = DataLoader(
+        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
+    )
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
@@ -131,7 +132,7 @@ def train(cfg):
         milestones=[cfg.optimizer.warmup_steps],
     )
     # save parameters
-    with open(os.path.join(cfg.experiment_path, experiment_name, "config.yaml"), "w") as f:
+    with open(os.path.join(cfg.experiment_path, cfg.experiment, "config.yaml"), "w") as f:
         OmegaConf.save(config=cfg, f=f)
 
     # training pipeline
@@ -237,6 +238,13 @@ def train(cfg):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument("--job_id", type=int, default=0)
+
     args = parser.parse_args()
+
     cfg = OmegaConf.load(args.config)
+    cfg.experiment = (
+        f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
+    )
+
     train(cfg)

@@ -110,12 +110,13 @@ def load_model_and_transform(
 
     Args:
         model_name: The name of the model to load.
+        features_only: Whether to load the model with features only.
 
     Returns:
-        model (nn.Module): The pre-trained model.
-        transform (callable): A transform object to prepare input data according to the model's
+        model: The pre-trained model.
+        transform: A transform object to prepare input data according to the model's
             requirements.
-        model_dim (int): The dimensionality of the model's output features.
+        model_dim: The dimensionality of the model's output features.
     """
     login(token=HF_TOKEN)
     model_name = clean_str(model_name)
@@ -263,7 +264,7 @@ def load_model_and_transform(
             out_indices=out_indices,
         )
         utils.load_model_and_may_interpolate("hf_hub:xiangjx/musk", model, "model|module", "")
-        model.to(device="cuda", dtype=torch.float32)
+        # model.to(dtype=torch.float32) # is this necessary?
         transform = transforms.Compose(
             [
                 transforms.Resize(model_cfg.img_size, interpolation=3, antialias=True),
@@ -332,10 +333,27 @@ def get_model_dim(model, img_size, features_only=False):
     int
         The dimensionality of the features output by the model.
     """
+    mock_input = torch.zeros(1, 3, img_size, img_size)
     with torch.no_grad():
         if not features_only:
-            model_dim = model.forward_patches(torch.zeros(1, 3, img_size, img_size)).shape[1]
+            model_dim = model.forward_patches(mock_input).shape[1]
         else:
             # in that case model_dim is a list
-            model_dim = model.feature_info.channels()
+            if hasattr(model, "feature_info"):
+                model_dim = model.feature_info.channels()
+            else:
+                out_list = model(mock_input)
+                model_dim = []
+                for out in out_list[:4]:
+                    if out is not None and hasattr(out, "shape"):
+                        print("out.shape", out.shape)
+                        if len(out.shape) > 1:
+                            dim_idx = 1
+                        else:
+                            dim_idx = 0
+                        model_dim.append(out.shape[dim_idx])
+                    else:
+                        print("ABNORMAL OUT:", out)
+                while len(model_dim) < 4:
+                    model_dim.append(model_dim[-1])
     return model_dim

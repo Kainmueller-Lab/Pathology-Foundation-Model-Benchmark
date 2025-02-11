@@ -37,7 +37,7 @@ if __name__ == "__main__":
     outdir = "/fast/AG_Kainmueller/outputs/test_unetr_{date}".format(date=datetime.now().strftime("%Y%m%d%H%M"))
     os.makedirs(outdir, exist_ok=True)
 
-    model_name = "uni"
+    model_name = "phikonv2"
     print(f"Instantiating model {model_name}...")
     model = UnetR(
         model_name=model_name,
@@ -59,6 +59,14 @@ if __name__ == "__main__":
     image = torch.stack(images).cuda()
     print("image", image.shape, image.min(), image.max())
     print("gt", gts[0].shape, gts[0].min(), gts[0].max())
+
+    patch_embeddings = model.model(image)
+    if hasattr(patch_embeddings, "shape"):
+        print("patch_embeddings", patch_embeddings.shape)
+    else:
+        for el in patch_embeddings:
+            if el is not None:
+                print(el.shape)
 
     output = model(image)
     output = output.detach().cpu().numpy()
