@@ -7,7 +7,7 @@ packages = ["src/benchmark"]
 
 [project]
 name = "Benchmark"
-version = "0.0.1"
+version = "0.0.2"
 description = "Benchmarking the ability of pathology foundation models to do cell type classification."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -53,7 +53,6 @@ dependencies = [
     'scipy',
     'ftfy',
     'opencv-python',
-    'sentencepiece',
     'pyarrow',
     'pytorch-lightning==2.2.1',
     'nltk',
