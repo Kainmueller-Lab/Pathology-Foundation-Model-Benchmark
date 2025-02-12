@@ -303,12 +303,14 @@ def load_model_and_transform(
             .permute(0, 3, 1, 2)
         )
     elif model_name == "mock":
-        model = MockModel(1024)
+        patch_size, img_size = 14, 224
+        model_dim = 1024
+        model = MockModel(model_dim)
         transform = torch.nn.Identity()
         model.forward_patches = lambda x: model(x)
-        model_dim = 1024
-        patch_size, img_size = 14, 224
-
+        if features_only:
+            model_dim = [1024, 1024, 1024, 1024]
+            model.forward = lambda x: [model(x), model(x), model(x), model(x)]
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
     if model_name != "mock":

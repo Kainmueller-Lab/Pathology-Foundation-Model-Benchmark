@@ -33,6 +33,7 @@ def make_log_dirs(cfg):
     cfg.writer_dir = os.path.join(log_dir, "summary", str(time()))
     os.makedirs(cfg.writer_dir, exist_ok=True)
 
+    print(f"Saving logs at {log_dir}")
     return log_dir, checkpoint_path, snap_dir
 
 
