@@ -63,6 +63,20 @@ def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
 
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
+    def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
+        print('-------- printing dataset stats -------')
+        print(f"Number of classes: {len(label_dict.keys())}")
+        print(f"Unique samples: {len(label_dict.keys())}")
+        def print_ds(ds):
+            print(f"Number of samples: {len(ds)}")
+        print('Train')
+        print_ds(train_dset)
+        print('Val')
+        print_ds(val_dset)
+        print('Test')
+        print_ds(test_dset)
+
+    print_ds_stats(train_dset, val_dset, test_dset, label_dict)
     model_wrapper = eval(cfg.model.model_wrapper)
     model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
     if cfg.model.unfreeze_backbone:

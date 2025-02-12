@@ -10,6 +10,7 @@ seed: 42
 primary_metric: f1_score_macro
 
 dataset:
+  name: 'lizard'
   path: tests/test_data/small_lizard_lmdb
   split: tests/test_data/small_lizard_train_test_val_split.csv
   label_dict: tests/test_data/label_dict.json
