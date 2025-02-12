@@ -214,7 +214,7 @@ def train(cfg):  # noqa: D103
                     )
                 if step % cfg.log_interval == 0:
                     print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
-            # log at cfg.log_interval or at the end of training
+            # log at cfg.val_interval or at the end of training
             if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
                 # validate
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")

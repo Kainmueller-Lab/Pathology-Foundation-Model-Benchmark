@@ -19,7 +19,7 @@ dataset:
   sample_excluded_classes: False
   
 model:
-  model_wrapper: UnetR
+  model_wrapper: SimpleSegmentationModel
   backbone: virchow2
   unfreeze_backbone: false
 
