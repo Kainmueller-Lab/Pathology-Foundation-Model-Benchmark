@@ -65,14 +65,14 @@ def prep_datasets(cfg):
     # load split .csv
     split_df = pd.read_csv(cfg.dataset.split)
     # enforce column names
-    assert {'sample_name', 'train_test_val_split'} == set(split_df.columns)
+    assert {"sample_name", "train_test_val_split"} == set(split_df.columns)
     # enfore split names
-    assert {'train', 'test', 'valid'} == set(split_df['train_test_val_split'].unique())
+    assert {"train", "test", "valid"} == set(split_df["train_test_val_split"].unique())
     label_dict = json.load(open(cfg.dataset.label_dict))
     # load dataset
     datasets = []
-    for split in ['train', 'valid', 'test']:
-        include_fovs = split_df[split_df['train_test_val_split'] == split]['sample_name'].tolist()
+    for split in ["train", "valid", "test"]:
+        include_fovs = split_df[split_df["train_test_val_split"] == split]["sample_name"].tolist()
         dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_fovs)
         datasets.append(dataset)
     datasets.append(label_dict)
@@ -80,8 +80,8 @@ def prep_datasets(cfg):
 
 
 def exclude_classes(
-        exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Exclude specified classes from the loss calculation.
 
     Args:
@@ -147,9 +147,13 @@ class EMAInverseClassFrequencyLoss(nn.Module):
     """
 
     def __init__(
-        self, loss_fn: nn.Module, exclude_class: Union[int, list[int]], num_classes: int,
-        alpha: float = 0.99, class_weighting=False
-        ):
+        self,
+        loss_fn: nn.Module,
+        exclude_class: Union[int, list[int]],
+        num_classes: int,
+        alpha: float = 0.99,
+        class_weighting=False,
+    ):
         super().__init__()
         self.loss_fn = loss_fn
         self.exclude_class = exclude_class
@@ -225,9 +229,7 @@ def get_weighted_sampler(ds, classes):
         semantic_mask = sample["semantic_mask"]
         tmp_list = []
         for c in classes:
-            tmp_list.append(
-                np.count_nonzero(semantic_mask == c)
-            )  # sum of individual classes for a sample
+            tmp_list.append(np.count_nonzero(semantic_mask == c))  # sum of individual classes for a sample
         count_list.append(np.stack(tmp_list))
 
     counts = np.stack(count_list)  # n_samples x classes
