@@ -259,8 +259,7 @@ def load_model_and_transform(
             ]
         )
         model.forward_patches = (
-            lambda x: model.trunk
-            .forward_features(x)[:, 1:, :]
+            lambda x: model.trunk.forward_features(x)[:, 1:, :]
             .reshape(
                 x.shape[0],
                 int(model_cfg.img_size / model_cfg.patch_size),
@@ -308,20 +307,22 @@ def load_model_and_transform(
         transform = torch.nn.Identity()
         model.forward_patches = lambda x: model(x)
         model_dim = 1024
+
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
-    if hasattr(model_cfg, "channels"):
-        model_dim = model_cfg.channels
-    else:
-        model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
+    if model_name != "mock":
+        if hasattr(model_cfg, "channels"):
+            model_dim = model_cfg.channels
+        else:
+            model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
     return model, transform, model_dim, model_cfg.patch_size, model_cfg.img_size
 
 
 def titan_intermediate_layers(
-        self,
-        x: torch.Tensor,
-        n: Union[int, Sequence] = 1,
+    self,
+    x: torch.Tensor,
+    n: Union[int, Sequence] = 1,
 ):
     """Redefine intermed layers for musk.
 
@@ -349,6 +350,7 @@ def titan_intermediate_layers(
             outputs.append(x)
 
     return outputs
+
 
 def clean_str(string):
     """
