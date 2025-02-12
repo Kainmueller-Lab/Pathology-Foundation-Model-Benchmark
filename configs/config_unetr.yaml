@@ -28,12 +28,12 @@ optimizer:
   params:
     lr: 3e-5
     weight_decay: 0.03
-  warmup_steps: 100
+  warmup_steps: 1000
 
 scheduler:
   name: CosineAnnealingLR
   params:
-    T_max: 200000
+    T_max: 30000
     eta_min: 1e-6
 
 loss_fn:

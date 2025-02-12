@@ -1,23 +1,24 @@
-import torch
+import os
+from pathlib import Path
+
 import timm
+import torch
+from dotenv import load_dotenv
+from huggingface_hub import login
+from musk import utils
 from omegaconf import OmegaConf
-from torchvision import transforms
-from timm.data.transforms_factory import create_transform
 from timm.data import resolve_data_config
-from timm.layers import SwiGLUPacked
-from timm.data.transforms import MaybeToTensor
-from musk import utils, modeling
 from timm.data.constants import (
-    IMAGENET_INCEPTION_MEAN,
-    IMAGENET_INCEPTION_STD,
     IMAGENET_DEFAULT_MEAN,
     IMAGENET_DEFAULT_STD,
+    IMAGENET_INCEPTION_MEAN,
+    IMAGENET_INCEPTION_STD,
 )
-from huggingface_hub import login
-from dotenv import load_dotenv
-import os
+from timm.data.transforms import MaybeToTensor
+from timm.data.transforms_factory import create_transform
+from timm.layers import SwiGLUPacked
+from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
-from pathlib import Path
 
 # load the environment variables
 dotenv_path = Path(__file__).parents[2] / ".env"
@@ -39,7 +40,7 @@ class SimpleSegmentationModel(torch.nn.Module):
                 Virchow2, UNI, Titan.
             num_classes (int): The number of output classes for the segmentation task.
         """
-        super(SimpleSegmentationModel, self).__init__()
+        super().__init__()
         self.model_name = clean_str(model_name)
         self.model, self.transform, model_dim = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
@@ -61,7 +62,9 @@ class SimpleSegmentationModel(torch.nn.Module):
 
         Args:
             x: Input tensor of shape (b, c, h, w)
-        Returns:
+
+        Returns
+        -------
             logits: Output logits of shape (b, num_classes, h, w)
         """
         b, c, h, w = x.shape
@@ -85,7 +88,7 @@ class MockModel(torch.nn.Module):
     """
 
     def __init__(self, embedding_dim):
-        super(MockModel, self).__init__()
+        super().__init__()
         self.embedding_dim = embedding_dim
         self.model = torch.nn.Conv2d(3, embedding_dim, kernel_size=3)
         self.model.train()
@@ -95,7 +98,9 @@ class MockModel(torch.nn.Module):
 
         Args:
             x: Input tensor of shape (b, c, h, w)
-        Returns:
+
+        Returns
+        -------
             logits: Output logits of shape (b, embedding_dim, h, w)
         """
         return self.model(x)
@@ -104,15 +109,14 @@ class MockModel(torch.nn.Module):
 def load_model_and_transform(
     model_name: str, features_only: bool = False
 ) -> tuple[torch.nn.Module, torch.nn.Module, int | list[int]]:
-    """
-    Load the specified model and a transform object to prepare input data according to the model's
-    requirements.
+    """Load model and transform to prepare data.
 
     Args:
         model_name: The name of the model to load.
         features_only: Whether to load the model with features only.
 
-    Returns:
+    Returns
+    -------
         model: The pre-trained model.
         transform: A transform object to prepare input data according to the model's
             requirements.
@@ -158,7 +162,7 @@ def load_model_and_transform(
             )
             .permute(0, 3, 1, 2)
         )
-        transform = AutoImageProcessor.from_pretrained(model_cfg.url)
+        transform = AutoImageProcessor.from_pretrained(model_cfg.url, use_fast=True)
     elif model_name == "virchow2":
         model_cfg = OmegaConf.load("configs/models/virchow2.yaml")
         model = timm.create_model(

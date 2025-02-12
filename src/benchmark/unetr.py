@@ -1,16 +1,15 @@
 # adapted from CellViT
 # https://github.com/TIO-IKIM/CellViT-plus-plus/blob/main/cellvit/models/cell_segmentation/cellvit.py
-import torch
-
 from collections import OrderedDict
 
-from benchmark.simple_segmentation_model import load_model_and_transform, clean_str
 import torch
 import torch.nn as nn
 
+from benchmark.simple_segmentation_model import clean_str, load_model_and_transform
+
 
 class Conv2DBlock(nn.Module):
-    """Conv2DBlock with convolution followed by batch-normalisation, ReLU activation and dropout
+    """Conv2DBlock with convolution followed by batch-normalisation, ReLU activation and dropout.
 
     Args:
         in_channels (int): Number of input channels for convolution
@@ -40,12 +39,12 @@ class Conv2DBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x):  # noqa: D102
         return self.block(x)
 
 
 class Deconv2DBlock(nn.Module):
-    """Deconvolution block with ConvTranspose2d followed by Conv2d, batch-normalisation, ReLU activation and dropout
+    """Deconvolution block with ConvTranspose2d followed by Conv2d, batch-normalisation, ReLU activation and dropout.
 
     Args:
         in_channels (int): Number of input channels for deconv block
@@ -83,13 +82,14 @@ class Deconv2DBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x):  # noqa: D102
         return self.block(x)
 
 
 class UnetR(nn.Module):
-    """CellViT Modell for cell segmentation. U-Net like network with vision transformer as backbone encoder
+    """CellViT Modell for cell segmentation.
 
+    U-Net like network with vision transformer as backbone encoder.
     Skip connections are shared between branches, but each network has a distinct encoder
 
     The modell is having multiple branches:
@@ -172,7 +172,9 @@ class UnetR(nn.Module):
 
         Args:
             x: Input tensor of shape (b, c, h, w)
-        Returns:
+
+        Returns
+        -------
             logits: Output logits of shape (b, num_classes, h, w)
         """
         if clean_str(self.model_name) == "phikonv2":
@@ -182,8 +184,8 @@ class UnetR(nn.Module):
         patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
 
         # Debug print
-        # for layer in patch_embeddings:
-        #    print("layer", layer.shape)
+        for layer in patch_embeddings:
+            print("layer", layer.shape)
 
         z0, z1, z2, z3, z4 = x, *patch_embeddings
 
@@ -200,7 +202,7 @@ class UnetR(nn.Module):
         z4: torch.Tensor,
         branch_decoder: nn.Sequential,
     ) -> torch.Tensor:
-        """Forward upsample branch
+        """Forward upsample branch.
 
         Args:
             z0 (torch.Tensor): Highest skip
@@ -210,7 +212,8 @@ class UnetR(nn.Module):
             z4 (torch.Tensor): Bottleneck
             branch_decoder (nn.Sequential): Branch decoder network
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: Branch Output
         """
         b4 = branch_decoder.bottleneck_upsampler(z4)
@@ -229,12 +232,13 @@ class UnetR(nn.Module):
         return branch_output
 
     def create_upsampling_branch(self, num_classes: int) -> nn.Module:
-        """Create Upsampling branch
+        """Create Upsampling branch.
 
         Args:
             num_classes (int): Number of output classes
 
-        Returns:
+        Returns
+        -------
             nn.Module: Upsampling path
         """
         bottleneck_upsampler = nn.ConvTranspose2d(
