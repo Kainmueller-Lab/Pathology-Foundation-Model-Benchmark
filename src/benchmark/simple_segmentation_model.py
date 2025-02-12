@@ -310,7 +310,7 @@ def load_model_and_transform(
         model.forward_patches = lambda x: model(x)
         if features_only:
             model_dim = [1024, 1024, 1024, 1024]
-            model.forward = lambda x: [model(x), model(x), model(x), model(x)]
+            model.forward = lambda x: [model.forward_patches(x)] * 4
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
     if model_name != "mock":
