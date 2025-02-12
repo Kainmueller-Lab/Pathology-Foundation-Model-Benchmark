@@ -38,6 +38,7 @@ if __name__ == "__main__":
         num_classes=num_classes,
     )
     model.cuda()
+    model.model.cuda()
     model.eval()
     '''
     dataset = LMDBDataset(
@@ -63,13 +64,13 @@ if __name__ == "__main__":
     seg_armax = np.argmax(output, axis=1, keepdims=True)
 
     # get the unique values and their counts
-    unique, counts = np.unique(output[0, ...], return_counts=True)
-    vals_count_seg = {el: count for el, count in zip(unique, counts) if count > 10}
-
     unique, counts = np.unique(seg_armax[0, ...], return_counts=True)
-    vals_count_gt = {el: count for el, count in zip(unique, counts) if count > 10}
+    vals_count_seg = {el: count for el, count in zip(unique, counts) if count > 50}
 
-    print("GT", vals_count_gt)
+    #unique, counts = np.unique(gts[0, ...], return_counts=True)
+    #vals_count_gt = {el: count for el, count in zip(unique, counts) if count > 50}
+
+    #print("GT", vals_count_gt)
     print("PRED", vals_count_seg)
 
     f, a = plt.subplots(1, 4)

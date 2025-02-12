@@ -2,6 +2,7 @@
 # https://github.com/TIO-IKIM/CellViT-plus-plus/blob/main/cellvit/models/cell_segmentation/cellvit.py
 from collections import OrderedDict
 
+import einops
 import torch
 import torch.nn as nn
 
@@ -122,14 +123,12 @@ class UnetR(nn.Module):
         self,
         model_name,
         num_classes,
-        patch_size: int = 16,
         drop_rate: float = 0,
     ):
         # For simplicity, we will assume that extract layers must have a length of 4
         super().__init__()
-        self.model, self.transform, model_dim = load_model_and_transform(model_name, features_only=True)
-        self.model_name = model_name
-        self.patch_size = patch_size
+        self.model, self.transform, model_dim, self.patch_size = load_model_and_transform(model_name, features_only=True)
+        self.model_name = clean_str(model_name)
         if not isinstance(model_dim, int):
             self.embed_dim = model_dim[-1]
         else:
@@ -177,13 +176,21 @@ class UnetR(nn.Module):
         -------
             logits: Output logits of shape (b, num_classes, h, w)
         """
-        if clean_str(self.model_name) == "phikonv2":
+        if self.model_name == "phikonv2":
             x = self.transform(x, return_tensors="pt")["pixel_values"]
+            x = x.cuda()
         else:
             x = self.transform(x)
         patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
 
         # Debug print
+        if self.model_name == "phikonv2":
+            patch_embeddings = patch_embeddings['hidden_states']
+            reshaped_embed = []
+            for layer in patch_embeddings[:4]:
+                reshaped_embed.append(einops.rearrange(layer[:,1:,:], 'b (p1 p2) d -> b d p1 p2', p1=self.patch_size, p2=self.patch_size))
+            patch_embeddings = reshaped_embed
+
         for layer in patch_embeddings:
             print("layer", layer.shape)
 

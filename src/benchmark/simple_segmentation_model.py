@@ -42,7 +42,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         super().__init__()
         self.model_name = clean_str(model_name)
-        self.model, self.transform, model_dim = load_model_and_transform(model_name)
+        self.model, self.transform, model_dim, _ = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
         self.model.eval()
         self.freeze_model()
@@ -151,18 +151,23 @@ def load_model_and_transform(
     elif model_name == "phikonv2":
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
         model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=features_only)
-        model.forward_patches = (
-            lambda x: model(x.to(model.device))
-            .last_hidden_state[:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
+        if not features_only:
+            model.forward_patches = (
+                lambda x: model(x)
+                .last_hidden_state[:, 1:, :]
+                .reshape(
+                    x.shape[0],
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    -1,
+                )
+                .permute(0, 3, 1, 2)
             )
-            .permute(0, 3, 1, 2)
-        )
-        transform = AutoImageProcessor.from_pretrained(model_cfg.url, use_fast=True)
+        else:
+            # TODO reshape here?
+            model.forward_patches = lambda x: model(x).hidden_states[:-4]
+
+        transform = AutoImageProcessor.from_pretrained(model_cfg.url, use_fast=True, do_rescale=False)
     elif model_name == "virchow2":
         model_cfg = OmegaConf.load("configs/models/virchow2.yaml")
         model = timm.create_model(
@@ -306,7 +311,7 @@ def load_model_and_transform(
     else:
         model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
-    return model, transform, model_dim
+    return model, transform, model_dim, model_cfg.patch_size
 
 
 def clean_str(string):
