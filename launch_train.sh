@@ -21,8 +21,8 @@ echo "Python version: $(python --version)"
 
 echo "================ Starting Job ============"
 echo "Config file: $1"
-
+echo "Model name: $2"
 
 echo $1
 N_CPUS=8
-OMP_NUM_THREADS=$N_CPUS PYTHONPATH=/fast/AG_Kainmueller/jluesch/channel_dinov2 python src/benchmark/train.py --config $1 --job_id ${JOB_ID}
+OMP_NUM_THREADS=$N_CPUS PYTHONPATH=/fast/AG_Kainmueller/jluesch/channel_dinov2 python src/benchmark/train.py --config $1 --job_id ${JOB_ID} --model_name $2
