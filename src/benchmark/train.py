@@ -67,7 +67,6 @@ def worker_init_fn(worker_id):  # noqa: D103
 
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
-
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
 
     def print_ds_stats(train_dset, val_dset, test_dset, label_dict):

@@ -1,8 +1,8 @@
 project: patho_benchmark
 experiment: unetr
 experiment_path: experiments
-training_steps: 3000
-log_interval: 100
+training_steps: 100
+log_interval: 10
 val_interval: 10
 multiprocessing: false
 num_workers: 0
@@ -21,7 +21,7 @@ dataset:
   
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: virchow2
+  backbone: MOCK
   unfreeze_backbone: false
 
 optimizer:
