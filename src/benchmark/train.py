@@ -1,30 +1,29 @@
+import argparse
 import os
-import torch
-from torch.utils.data import DataLoader
-import numpy as np
+from datetime import datetime
 from time import time
+
+import h5py
+import numpy as np
+import torch
+import wandb
 from omegaconf import OmegaConf
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
-import wandb
-from benchmark.augmentations import Augmenter
-from benchmark.init_dist import init_distributed
-from benchmark.utils import prep_datasets, ExcludeClassLossWrapper, EMAInverseClassFrequencyLoss
-from benchmark.eval import Eval
-from benchmark.simple_segmentation_model import SimpleSegmentationModel, load_model_and_transform, MockModel
-from benchmark.unetr import UnetR
-import argparse
-import h5py
-from datetime import datetime
 
-from benchmark.utils import get_weighted_sampler
+from benchmark.augmentations import Augmenter
+from benchmark.eval import Eval
+from benchmark.init_dist import init_distributed
+from benchmark.simple_segmentation_model import MockModel, SimpleSegmentationModel
+from benchmark.unetr import UnetR
+from benchmark.utils import EMAInverseClassFrequencyLoss, ExcludeClassLossWrapper, get_weighted_sampler, prep_datasets
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
 
-
-def train(cfg):
-    # prepare directories for writing training infos
+def make_log_dirs(cfg):
+    """Prepare directories for writing training infos."""
     log_dir = os.path.join(cfg.experiment_path, cfg.experiment, "train")
     checkpoint_path = os.path.join(log_dir, "checkpoints")
     snap_dir = os.path.join(log_dir, "snaps")
@@ -32,6 +31,31 @@ def train(cfg):
     os.makedirs(checkpoint_path, exist_ok=True)
     cfg.writer_dir = os.path.join(log_dir, "summary", str(time()))
     os.makedirs(cfg.writer_dir, exist_ok=True)
+
+    return log_dir, checkpoint_path, snap_dir
+
+def creat_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):  # noqa: D103
+        train_dataloader = DataLoader(
+            train_dset,
+            batch_size=cfg.dataset.batch_size,
+            pin_memory=True,
+            worker_init_fn=worker_init_fn,
+            prefetch_factor=8 if cfg.multiprocessing else None,
+            num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
+            sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
+            shuffle=not cfg.dataset.uniform_class_sampling,
+        )
+        val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
+        test_dataloader = DataLoader(
+            test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
+        )
+        return train_dataloader, val_dataloader, test_dataloader
+
+def worker_init_fn(worker_id):  # noqa: D103
+    np.random.seed(np.random.get_state()[1][0] + worker_id)
+
+def train(cfg):  # noqa: D103
+    log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
 
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     model_wrapper = eval(cfg.model.model_wrapper)
@@ -49,7 +73,6 @@ def train(cfg):
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
-
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 
@@ -84,9 +107,6 @@ def train(cfg):
 
     scaler = torch.amp.GradScaler(device.type)
 
-    def worker_init_fn(worker_id):
-        np.random.seed(np.random.get_state()[1][0] + worker_id)
-
     if cfg.dataset.uniform_class_sampling:
         if cfg.dataset.sample_excluded_classes:
             classes = [int(k) for k in label_dict.keys() if int(k) not in cfg.loss_fn.exclude_classes]
@@ -94,20 +114,7 @@ def train(cfg):
             classes = [int(k) for k in label_dict.keys()]
         train_sampler = get_weighted_sampler(train_dset, classes=classes)
 
-    train_dataloader = DataLoader(
-        train_dset,
-        batch_size=cfg.dataset.batch_size,
-        pin_memory=True,
-        worker_init_fn=worker_init_fn,
-        prefetch_factor=8 if cfg.multiprocessing else None,
-        num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
-        sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
-        shuffle=not cfg.dataset.uniform_class_sampling,
-    )
-    val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
-    test_dataloader = DataLoader(
-        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
-    )
+    train_dataloader, val_dataloader, test_dataloader = creat_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler)
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
@@ -174,9 +181,10 @@ def train(cfg):
                         },
                         step=step,
                     )
-                print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
+                if step % cfg.log_interval == 0:
+                    print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
             # log at cfg.log_interval or at the end of training
-            if (step % cfg.log_interval == 0) or (step == cfg.training_steps - 1):
+            if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
                 # validation
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
@@ -215,7 +223,7 @@ def train(cfg):
                     primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
                 if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
                     if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
-                        model_path = os.path.join(checkpoint_path, f"best_model.pth")
+                        model_path = os.path.join(checkpoint_path, "best_model.pth")
                         torch.save(model.state_dict(), model_path)
                         best_checkpoint_step = step
             step += 1
@@ -239,6 +247,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument("--job_id", type=int, default=0)
+    parser.add_argument("--model_name", type=str, default='uni')
 
     args = parser.parse_args()
 
@@ -246,5 +255,7 @@ if __name__ == "__main__":
     cfg.experiment = (
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
+    cfg.model.backbone = args.model_name
+    print(f"Model name: {cfg.model.backbone}")
 
     train(cfg)
