@@ -41,7 +41,7 @@ loss_fn:
   params:
     label_smoothing: 0.05
     reduction: none
-  class_weighting: false
+  class_weighting: true
 
   exclude_classes: [0]
 

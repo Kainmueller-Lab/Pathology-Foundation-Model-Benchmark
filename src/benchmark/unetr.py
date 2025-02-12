@@ -127,7 +127,9 @@ class UnetR(nn.Module):
     ):
         # For simplicity, we will assume that extract layers must have a length of 4
         super().__init__()
-        self.model, self.transform, model_dim, self.patch_size = load_model_and_transform(model_name, features_only=True)
+        self.model, self.transform, model_dim, self.patch_size = load_model_and_transform(
+            model_name, features_only=True
+        )
         self.model_name = clean_str(model_name)
         if not isinstance(model_dim, int):
             self.embed_dim = model_dim[-1]
@@ -183,16 +185,20 @@ class UnetR(nn.Module):
             x = self.transform(x)
         patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
 
-        # Debug print
         if self.model_name == "phikonv2":
-            patch_embeddings = patch_embeddings['hidden_states']
+            patch_embeddings = patch_embeddings["hidden_states"]
             reshaped_embed = []
             for layer in patch_embeddings[:4]:
-                reshaped_embed.append(einops.rearrange(layer[:,1:,:], 'b (p1 p2) d -> b d p1 p2', p1=self.patch_size, p2=self.patch_size))
+                reshaped_embed.append(
+                    einops.rearrange(
+                        layer[:, 1:, :], "b (p1 p2) d -> b d p1 p2", p1=self.patch_size, p2=self.patch_size
+                    )
+                )
             patch_embeddings = reshaped_embed
 
-        for layer in patch_embeddings:
-            print("layer", layer.shape)
+        # Debug print
+        # for layer in patch_embeddings:
+        #    print("layer", layer.shape)
 
         z0, z1, z2, z3, z4 = x, *patch_embeddings
 

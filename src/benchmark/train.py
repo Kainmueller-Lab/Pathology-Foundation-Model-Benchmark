@@ -22,6 +22,7 @@ from benchmark.utils import EMAInverseClassFrequencyLoss, ExcludeClassLossWrappe
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
 
+
 def make_log_dirs(cfg):
     """Prepare directories for writing training infos."""
     log_dir = os.path.join(cfg.experiment_path, cfg.experiment, "train")
@@ -34,25 +35,28 @@ def make_log_dirs(cfg):
 
     return log_dir, checkpoint_path, snap_dir
 
-def creat_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):  # noqa: D103
-        train_dataloader = DataLoader(
-            train_dset,
-            batch_size=cfg.dataset.batch_size,
-            pin_memory=True,
-            worker_init_fn=worker_init_fn,
-            prefetch_factor=8 if cfg.multiprocessing else None,
-            num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
-            sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
-            shuffle=not cfg.dataset.uniform_class_sampling,
-        )
-        val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
-        test_dataloader = DataLoader(
-            test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
-        )
-        return train_dataloader, val_dataloader, test_dataloader
+
+def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):  # noqa: D103
+    train_dataloader = DataLoader(
+        train_dset,
+        batch_size=cfg.dataset.batch_size,
+        pin_memory=True,
+        worker_init_fn=worker_init_fn,
+        prefetch_factor=8 if cfg.multiprocessing else None,
+        num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
+        sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
+        shuffle=not cfg.dataset.uniform_class_sampling,
+    )
+    val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
+    test_dataloader = DataLoader(
+        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
+    )
+    return train_dataloader, val_dataloader, test_dataloader
+
 
 def worker_init_fn(worker_id):  # noqa: D103
     np.random.seed(np.random.get_state()[1][0] + worker_id)
+
 
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
@@ -73,6 +77,7 @@ def train(cfg):  # noqa: D103
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
+
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 
@@ -114,7 +119,9 @@ def train(cfg):  # noqa: D103
             classes = [int(k) for k in label_dict.keys()]
         train_sampler = get_weighted_sampler(train_dset, classes=classes)
 
-    train_dataloader, val_dataloader, test_dataloader = creat_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(
+        cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler
+    )
     loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
     if hasattr(cfg.loss_fn, "exclude_classes"):
         print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
@@ -247,15 +254,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument("--job_id", type=int, default=0)
-    parser.add_argument("--model_name", type=str, default='uni')
+    parser.add_argument("--model_name", type=str, default="uni")
 
     args = parser.parse_args()
 
     cfg = OmegaConf.load(args.config)
+    cfg.model.backbone = args.model_name
     cfg.experiment = (
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
-    cfg.model.backbone = args.model_name
-    print(f"Model name: {cfg.model.backbone}")
+    print(f"Experiment name: {cfg.experiment}")
 
     train(cfg)
