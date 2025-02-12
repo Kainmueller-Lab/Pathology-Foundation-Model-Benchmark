@@ -24,13 +24,11 @@ def extract_numbers_from_string(s):
     Returns:
         list: A list of numbers as strings. Convert to integers or floats if needed.
     """
-    return re.findall(r'\d+\.?\d*', s)
+    return re.findall(r"\d+\.?\d*", s)
 
 
 class Eval:
-    def __init__(
-            self, label_dict, instance_level=True, pixel_level=False, save_dir=None, fname=None
-        ):
+    def __init__(self, label_dict, instance_level=True, pixel_level=False, save_dir=None, fname=None):
         """
         Initializes the evaluation pipeline.
 
@@ -100,8 +98,7 @@ class Eval:
         # Compute metrics
         if self.instance_level:
             metrics = self.compute_metrics_instance_level(
-                y_pred=pred_df["pred_class"].values,
-                y_true=pred_df["groundtruth"].values
+                y_pred=pred_df["pred_class"].values, y_true=pred_df["groundtruth"].values
             )
             return metrics
         else:
@@ -122,34 +119,30 @@ class Eval:
 
         """
 
-        props_gt = regionprops_table(
-            instance_gt,
-            intensity_image=semantic_gt,
-            properties=('label', 'intensity_mean')
-        )
+        props_gt = regionprops_table(instance_gt, intensity_image=semantic_gt, properties=("label", "intensity_mean"))
         props_gt = pd.DataFrame(props_gt)
-        props_gt.rename(columns={'intensity_mean': 'groundtruth'}, inplace=True)
-        props_gt['groundtruth'] = props_gt['groundtruth'].astype(int)
+        props_gt.rename(columns={"intensity_mean": "groundtruth"}, inplace=True)
+        props_gt["groundtruth"] = props_gt["groundtruth"].astype(int)
 
         semantic_pred = np.moveaxis(semantic_pred, 0, -1)
         props_pred = regionprops_table(
-            instance_gt,
-            intensity_image=semantic_pred,
-            properties=('label', 'intensity_mean')
+            instance_gt, intensity_image=semantic_pred, properties=("label", "intensity_mean")
         )
         props_pred = pd.DataFrame(props_pred)
 
         # extract numbers from props_pred.columns if number is there
         rename_dict = {
-            col: self.label_dict[int(extract_numbers_from_string(col)[0])] for col in props_pred.columns if col != 'label'
+            col: self.label_dict[int(extract_numbers_from_string(col)[0])]
+            for col in props_pred.columns
+            if col != "label"
         }
         props_pred.rename(columns=rename_dict, inplace=True)
         # get maximum intensity class
-        props_pred['pred_class_name'] = props_pred.drop('label', axis=1).idxmax(axis=1)
-        props_pred['pred_class'] = props_pred['pred_class_name'].map(self.label_dict_rev)
+        props_pred["pred_class_name"] = props_pred.drop("label", axis=1).idxmax(axis=1)
+        props_pred["pred_class"] = props_pred["pred_class_name"].map(self.label_dict_rev)
 
         # Merge the two dataframes
-        pred_df = pd.merge(props_gt, props_pred, on='label', how='inner')
+        pred_df = pd.merge(props_gt, props_pred, on="label", how="inner")
         return pred_df
 
     def compute_metrics_instance_level(self, y_pred, y_true):
@@ -211,8 +204,16 @@ class Eval:
 
         if self.save_dir:
             # save metrics to csv and exclude all per class metrics before
-            cols = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-                    "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
+            cols = [
+                "precision_macro",
+                "recall_macro",
+                "f1_score_macro",
+                "accuracy_macro",
+                "precision_micro",
+                "recall_micro",
+                "f1_score_micro",
+                "accuracy_micro",
+            ]
             metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])
             classwise_metrics_df = pd.DataFrame(classwise_metrics, index=[0])
             metrics_df = pd.concat([metrics_df, classwise_metrics_df], axis=1)

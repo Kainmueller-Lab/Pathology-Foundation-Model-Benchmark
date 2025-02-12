@@ -1,6 +1,8 @@
 import json
+import os
 from typing import Union
 
+import h5py
 import numpy as np
 import pandas as pd
 import torch
@@ -245,3 +247,50 @@ def get_weighted_sampler(ds, classes):
         replacement=True,
     )
     return sampler
+
+
+def save_imgs_for_debug(
+    snap_dir,
+    step,
+    img,
+    pred_mask,
+    semantic_mask,
+    img_aug,
+    semantic_mask_aug,
+    instance_mask=None,
+    instance_mask_aug=None,
+):
+    """
+    Saves images and masks for debugging purposes to an HDF5 file.
+
+    Args:
+        snap_dir (str): The directory where the snapshot file will be saved.
+        step (int): The current step or iteration number, used to name the snapshot file.
+        img (torch.Tensor): The original input image tensor.
+        pred_mask (torch.Tensor): The predicted mask tensor with logits.
+        semantic_mask (torch.Tensor): The original semantic mask tensor.
+        img_aug (torch.Tensor): The augmented input image tensor.
+        semantic_mask_aug (torch.Tensor): The augmented semantic mask tensor.
+        instance_mask (torch.Tensor, optional): The original instance mask tensor. Default is None.
+        instance_mask_aug (torch.Tensor, optional): The augmented instance mask tensor. Default is None.
+
+    Note:
+        The saved HDF5 file will contain the datasets: 'img', 'pred_mask', 'semantic_mask', 
+        'img_aug', 'semantic_mask_aug', and optionally 'instance_mask' and 'instance_mask_aug' if provided.
+    """
+
+    with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
+        f.create_dataset("img", data=img.cpu().detach().numpy().astype(np.float32))
+        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32))
+        f.create_dataset("semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
+        f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy().astype(np.float32))
+        f.create_dataset(
+            "semantic_mask_aug",
+            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+        )
+        if instance_mask is not None:
+            f.create_dataset("instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
+            f.create_dataset(
+                "instance_mask_aug",
+                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+            )

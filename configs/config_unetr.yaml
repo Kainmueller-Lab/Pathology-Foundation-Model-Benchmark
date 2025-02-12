@@ -3,11 +3,12 @@ experiment: unetr1.3
 experiment_path: experiments
 training_steps: 30000
 log_interval: 10
-val_interval: 100
+val_interval: 200
 multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
+save_all_ckpts: false # watch out for memory
 
 dataset:
   name: 'lizard'

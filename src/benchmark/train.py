@@ -17,7 +17,13 @@ from benchmark.eval import Eval
 from benchmark.init_dist import init_distributed
 from benchmark.simple_segmentation_model import MockModel, SimpleSegmentationModel
 from benchmark.unetr import UnetR
-from benchmark.utils import EMAInverseClassFrequencyLoss, ExcludeClassLossWrapper, get_weighted_sampler, prep_datasets
+from benchmark.utils import (
+    EMAInverseClassFrequencyLoss,
+    ExcludeClassLossWrapper,
+    get_weighted_sampler,
+    prep_datasets,
+    save_imgs_for_debug,
+)
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
@@ -210,7 +216,7 @@ def train(cfg):  # noqa: D103
                     print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
             # log at cfg.log_interval or at the end of training
             if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
-                # validation
+                # validate
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
                 logging_dict, classwise_dict = evaluater.compute_metrics(model, val_dataloader, device)
@@ -226,30 +232,20 @@ def train(cfg):  # noqa: D103
                     wandb.log(classwise_dict, step=step)
                 if logging or "RANK" not in os.environ:
                     model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
-                    torch.save(model.state_dict(), model_path)
-                    # save img, pred_mask, semantic_mask, instance_mask to hdf
-                    with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
-                        f.create_dataset("img", data=img.cpu().detach().numpy().astype(np.float32))
-                        f.create_dataset(
-                            "pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32)
+                    if cfg.save_all_ckpts:
+                        torch.save(model.state_dict(), model_path)
+                    if step % (10 * cfg.val_interval) == 0:
+                        save_imgs_for_debug(
+                            snap_dir,
+                            step,
+                            img,
+                            pred_mask,
+                            semantic_mask,
+                            img_aug,
+                            semantic_mask_aug,
+                            instance_mask=None,
+                            instance_mask_aug=None,
                         )
-                        f.create_dataset(
-                            "semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
-                        )
-                        f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy().astype(np.float32))
-                        f.create_dataset(
-                            "semantic_mask_aug",
-                            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
-                        )
-                        if instance_mask is not None:
-                            f.create_dataset(
-                                "instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8)
-                            )
-                            f.create_dataset(
-                                "instance_mask_aug",
-                                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
-                            )
-
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
                 if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
