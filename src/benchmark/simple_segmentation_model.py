@@ -122,8 +122,9 @@ def load_model_and_transform(
             requirements.
         model_dim: The dimensionality of the model's output features.
     """
-    login(token=HF_TOKEN)
     model_name = clean_str(model_name)
+    if "mock" not in model_name:
+        login(token=HF_TOKEN)
     if features_only:
         # take features of last 4 layers
         out_indices = (-4, -3, -2, -1)
