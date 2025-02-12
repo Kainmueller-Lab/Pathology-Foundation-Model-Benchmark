@@ -127,7 +127,7 @@ class UnetR(nn.Module):
     ):
         # For simplicity, we will assume that extract layers must have a length of 4
         super().__init__()
-        self.model, self.transform, model_dim, self.patch_size = load_model_and_transform(
+        self.model, self.transform, model_dim, self.patch_size, self.image_size = load_model_and_transform(
             model_name, features_only=True
         )
         self.model_name = clean_str(model_name)
@@ -187,11 +187,15 @@ class UnetR(nn.Module):
 
         if self.model_name == "phikonv2":
             patch_embeddings = patch_embeddings["hidden_states"]
+
+        if self.model_name in ["phikonv2", "titan"]:
             reshaped_embed = []
             for layer in patch_embeddings[:4]:
                 reshaped_embed.append(
                     einops.rearrange(
-                        layer[:, 1:, :], "b (p1 p2) d -> b d p1 p2", p1=self.patch_size, p2=self.patch_size
+                        layer[:, 1:, :], "b (p1 p2) d -> b d p1 p2",
+                        p1=self.image_size // self.patch_size,
+                        p2=self.image_size // self.patch_size
                     )
                 )
             patch_embeddings = reshaped_embed

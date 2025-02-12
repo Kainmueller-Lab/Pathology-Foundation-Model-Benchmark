@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Sequence, Union
 
 import timm
 import torch
@@ -42,7 +43,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         super().__init__()
         self.model_name = clean_str(model_name)
-        self.model, self.transform, model_dim, _ = load_model_and_transform(model_name)
+        self.model, self.transform, model_dim, _, _ = load_model_and_transform(model_name)
         self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
         self.model.eval()
         self.freeze_model()
@@ -248,6 +249,8 @@ def load_model_and_transform(
         model_cfg = OmegaConf.load("configs/models/titan.yaml")
         titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=features_only)
         model, _ = titan.return_conch()
+        model.forward = lambda x: titan_intermediate_layers(model.trunk, x, n=4)
+
         transform = transforms.Compose(
             [
                 transforms.Resize(model_cfg.img_size, interpolation=transforms.InterpolationMode.BILINEAR),
@@ -256,7 +259,7 @@ def load_model_and_transform(
             ]
         )
         model.forward_patches = (
-            lambda x: model._modules["trunk"]
+            lambda x: model.trunk
             .forward_features(x)[:, 1:, :]
             .reshape(
                 x.shape[0],
@@ -312,8 +315,40 @@ def load_model_and_transform(
     else:
         model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
-    return model, transform, model_dim, model_cfg.patch_size
+    return model, transform, model_dim, model_cfg.patch_size, model_cfg.img_size
 
+
+def titan_intermediate_layers(
+        self,
+        x: torch.Tensor,
+        n: Union[int, Sequence] = 1,
+):
+    """Redefine intermed layers for musk.
+
+    Args:
+        x: Input tensor of shape (b, c, h, w)
+        n: Number of intermediate layers to return, or a list of indices to return
+        starts at the last layer!
+
+    Returns
+    -------
+        outputs: List of intermediate layers
+    """
+    b, c, h, w = x.shape
+    outputs, num_blocks = [], len(self.blocks)
+    take_indices = set(range(num_blocks - n, num_blocks) if isinstance(n, int) else n)
+
+    # forward pass
+    x = self.patch_embed(x)
+    x = self._pos_embed(x, h, w)
+    x = self.patch_drop(x)
+    x = self.norm_pre(x)
+    for i, blk in enumerate(self.blocks):
+        x = blk(x)
+        if i in take_indices:
+            outputs.append(x)
+
+    return outputs
 
 def clean_str(string):
     """

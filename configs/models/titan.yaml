@@ -1,4 +1,4 @@
 url: "MahmoodLab/TITAN"
 patch_size: 16
 img_size: 224
-channels: [768, 768, 768, 768]
+channels: [1024, 1024, 1024, 1024]
