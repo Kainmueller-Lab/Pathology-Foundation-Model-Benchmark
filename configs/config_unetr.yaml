@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: unetr1.2
+experiment: unetr1.3
 experiment_path: experiments
 training_steps: 30000
 log_interval: 10
@@ -45,20 +45,20 @@ loss_fn:
 
   exclude_classes: [0]
 
-  augmentations:
-    RandomHorizontalFlip:
-      p: 0.5
-    RandomVerticalFlip:
-      p: 0.5
-    RandomAffine:
-      degrees: [0, 360]
-      translate: 0.1
-      scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
-      resample: BILINEAR
-    RandomElasticTransform:
-      kernel_size: [63, 63]
-      sigma: [32.0, 32.0]
-      alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
-    HEDNormalize:
-      sigma: 0.025 # halved color aug
-      bias: 0.05 # halved color aug
+augmentations:
+  RandomHorizontalFlip:
+    p: 0.5
+  RandomVerticalFlip:
+    p: 0.5
+  RandomAffine:
+    degrees: [0, 360]
+    translate: 0.1
+    scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
+    resample: BILINEAR
+  RandomElasticTransform:
+    kernel_size: [63, 63]
+    sigma: [32.0, 32.0]
+    alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
+  HEDNormalize:
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug

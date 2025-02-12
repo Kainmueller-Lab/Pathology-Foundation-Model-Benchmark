@@ -212,7 +212,9 @@ def train(cfg):  # noqa: D103
                     # save img, pred_mask, semantic_mask, instance_mask to hdf
                     with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
                         f.create_dataset("img", data=img.cpu().detach().numpy())
-                        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy())
+                        f.create_dataset(
+                            "pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32)
+                        )
                         f.create_dataset("semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy())
                         f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy())
                         f.create_dataset(
