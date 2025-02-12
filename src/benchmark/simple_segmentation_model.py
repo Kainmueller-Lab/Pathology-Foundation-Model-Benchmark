@@ -307,16 +307,18 @@ def load_model_and_transform(
         transform = torch.nn.Identity()
         model.forward_patches = lambda x: model(x)
         model_dim = 1024
+        patch_size, img_size = 14, 224
 
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
     if model_name != "mock":
+        patch_size, img_size = model_cfg.patch_size, model_cfg.img_size
         if hasattr(model_cfg, "channels"):
             model_dim = model_cfg.channels
         else:
             model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
-    return model, transform, model_dim, model_cfg.patch_size, model_cfg.img_size
+    return model, transform, model_dim, patch_size, img_size
 
 
 def titan_intermediate_layers(
