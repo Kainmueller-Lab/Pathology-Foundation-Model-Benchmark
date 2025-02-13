@@ -20,7 +20,7 @@ class MockDataset(Dataset):
             "image": torch.rand(3, 224, 224),
             "semantic_mask": np.random.randint(0, self.num_classes, (224, 224)),
             "instance_mask": np.random.randint(0, 10, (224, 224)),
-            "sample_name": f"sample_{idx}"
+            "sample_name": f"sample_{idx}",
         }
 
 
@@ -45,12 +45,28 @@ def test_eval_instance_level():
 
     device = torch.device("cpu")
     dataset_metrics, cell_metrics = eval.compute_metrics(model, dataloader, device)
-    keys = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-            "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro"]
+    keys = [
+        "precision_macro",
+        "recall_macro",
+        "f1_score_macro",
+        "accuracy_macro",
+        "precision_micro",
+        "recall_micro",
+        "f1_score_micro",
+        "accuracy_micro",
+    ]
     for key in keys:
         assert key in dataset_metrics.keys()
-    keys = ['class_1/precision', 'class_1/recall', 'class_1/f1_score', 'class_1/accuracy',
-            'class_2/precision', 'class_2/recall', 'class_2/f1_score', 'class_2/accuracy']
+    keys = [
+        "class_1/precision",
+        "class_1/recall",
+        "class_1/f1_score",
+        "class_1/accuracy",
+        "class_2/precision",
+        "class_2/recall",
+        "class_2/f1_score",
+        "class_2/accuracy",
+    ]
     for key in keys:
         assert key in cell_metrics.keys()
 

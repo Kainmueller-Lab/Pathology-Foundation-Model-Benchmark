@@ -49,10 +49,10 @@ class Augmenter(Kaug.AugmentationSequential):
                 kwargs = OmegaConf.to_container(cfg, resolve=True)
             else:
                 kwargs = cfg  # Keep it as-is if it's already a dict
-             # For RandomElasticTransform, convert specific list parameters to tensors.
-             # get_gaussian_kernel2d(kernel_size, sigma) expects sigma to be a tensor instead of a list.
-            if name == 'RandomElasticTransform':
-                for key in ['kernel_size', 'sigma', 'alpha']:
+            # For RandomElasticTransform, convert specific list parameters to tensors.
+            # get_gaussian_kernel2d(kernel_size, sigma) expects sigma to be a tensor instead of a list.
+            if name == "RandomElasticTransform":
+                for key in ["kernel_size", "sigma", "alpha"]:
                     if key in kwargs and isinstance(kwargs[key], list):
                         kwargs[key] = torch.tensor(kwargs[key])
             transforms.append(get_augmentation(name, **kwargs))

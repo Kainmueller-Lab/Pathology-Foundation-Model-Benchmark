@@ -13,6 +13,7 @@ class LMDBDataset(Dataset):  # noqa: D101
             path (str): Path to the LMDB file.
             include_sample_names (list, optional): List of sample names to include. Default is None, meaning all samples are included.
         """
+
         self.lmdb_path = path
         self.include_sample_names = include_sample_names
 
@@ -60,9 +61,9 @@ class LMDBDataset(Dataset):  # noqa: D101
             if value is None:
                 raise ValueError(f"No data found for key {key}")
             data = pickle.loads(value)
-        if 'image' in data and data['image'] is not None:
-            if data['image'].max() > 1: # Normalize image if it is not already normalized
-                data['image'] = data['image'] / data['image'].max()
+        if "image" in data and data["image"] is not None:
+            if data["image"].max() > 1:  # Normalize image if it is not already normalized
+                data["image"] = data["image"] / data["image"].max()
         return data
 
 

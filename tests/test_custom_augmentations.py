@@ -2,6 +2,7 @@ import torch
 import kornia.augmentation as Kaug
 from benchmark.custom_augmentations import HEDNormalize  # Replace 'your_module' with the actual module name
 
+
 def test_hed_normalize():
     # Test instance creation
     hed_normalize = HEDNormalize(sigma=0.05, bias=0.1)

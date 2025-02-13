@@ -7,6 +7,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+
 def accuracy(y_true, y_pred, class_id=None):
     """
     Computes the accuracy score.
@@ -24,6 +25,7 @@ def accuracy(y_true, y_pred, class_id=None):
         y_true = y_true[y_true == class_id]
     return accuracy_score(y_true, y_pred)
 
+
 def precision(y_true, y_pred, class_id):
     """
     Computes the precision for a specific class.
@@ -40,9 +42,10 @@ def precision(y_true, y_pred, class_id):
         y_true,
         y_pred,
         labels=[class_id] if class_id is not None else None,
-        average='micro',
+        average="micro",
         zero_division=0,
     )
+
 
 def recall(y_true, y_pred, class_id):
     """
@@ -60,9 +63,10 @@ def recall(y_true, y_pred, class_id):
         y_true,
         y_pred,
         labels=[class_id] if class_id is not None else None,
-        average='micro',
+        average="micro",
         zero_division=0,
     )
+
 
 def f1_score_class(y_true, y_pred, class_id):
     """
@@ -80,9 +84,10 @@ def f1_score_class(y_true, y_pred, class_id):
         y_true,
         y_pred,
         labels=[class_id] if class_id is not None else None,
-        average='micro',
+        average="micro",
         zero_division=0,
     )
+
 
 def confusion_matrix_func(y_true, y_pred, labels=None):
     """
