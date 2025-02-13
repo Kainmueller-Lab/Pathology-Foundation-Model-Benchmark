@@ -7,8 +7,10 @@ multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
+save_all_ckpts: false # watch out for memory
 
 dataset:
+  name: 'pannuke'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/pannuke_lmdb
   split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/train_test_val_split.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/label_dict_fixed.json
