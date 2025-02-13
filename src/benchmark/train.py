@@ -85,6 +85,7 @@ def initialize_dist(model):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         WORLD_SIZE = 1
         model = model.to(device)
+        LOCAL_RANK = 0
     print(f"Device: {device}")
     return model, device, WORLD_SIZE, LOCAL_RANK
 

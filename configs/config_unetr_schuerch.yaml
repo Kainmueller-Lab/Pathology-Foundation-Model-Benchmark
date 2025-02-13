@@ -1,7 +1,7 @@
 project: patho_benchmark
 experiment: unetr1.4
 experiment_path: experiments
-training_steps: 30000
+training_steps: 10000
 log_interval: 10
 val_interval: 200
 multiprocessing: true
