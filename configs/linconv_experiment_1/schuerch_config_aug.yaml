@@ -1,5 +1,4 @@
 project: patho_benchmark
-experiment: virchow2_schuerch_aug_class_sampling_linconv_experiment_1
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
@@ -19,7 +18,6 @@ dataset:
 
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: virchow2
   unfreeze_backbone: false
 
 optimizer:
@@ -59,5 +57,5 @@ augmentations:
     sigma: [32.0, 32.0]
     alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
   HEDNormalize:
-    sigma: 0.05
-    bias: 0.1
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug

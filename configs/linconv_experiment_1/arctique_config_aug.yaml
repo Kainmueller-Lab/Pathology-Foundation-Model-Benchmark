@@ -1,5 +1,4 @@
 project: patho_benchmark
-experiment: provgigapath_schuerch_aug_class_sampling_linconv_experiment_1
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
@@ -10,16 +9,15 @@ seed: 42
 primary_metric: f1_score_macro
 
 dataset:
-  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/schuerch_dataset_split.csv
-  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/arctique_lmdb/
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/train_test_val_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/label_dict.json
   batch_size: 128
   uniform_class_sampling: True
   sample_excluded_classes: False
 
 model:
   model_wrapper: SimpleSegmentationModel
-  backbone: provgigapath
   unfreeze_backbone: false
 
 optimizer:
@@ -59,5 +57,5 @@ augmentations:
     sigma: [32.0, 32.0]
     alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
   HEDNormalize:
-    sigma: 0.05
-    bias: 0.1
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug
