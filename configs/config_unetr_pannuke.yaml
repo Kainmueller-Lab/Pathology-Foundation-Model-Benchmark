@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: unetr1.4
+experiment: "unetr1.4"
 experiment_path: experiments
 training_steps: 10000
 log_interval: 10
@@ -9,15 +9,16 @@ num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
+early_stopping: 1500
 
 dataset:
-  name: 'schuerch'
+  name: "pannuke"
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/pannuke_lmdb
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/train_test_val_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/label_dict.json
   batch_size: 128
   uniform_class_sampling: True
   sample_excluded_classes: False
-  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/schuerch_dataset_split.csv
-  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
   
 model:
   model_wrapper: UnetR
@@ -35,7 +36,7 @@ scheduler:
   name: CosineAnnealingLR
   params:
     T_max: 10000
-    eta_min: 1e-6
+    eta_min: 1e-7
 
 loss_fn:
   name: CrossEntropyLoss

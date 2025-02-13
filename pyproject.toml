@@ -55,6 +55,7 @@ dependencies = [
     'opencv-python',
     'pyarrow',
     'pytorch-lightning==2.2.1',
+    'segmentation_models_pytorch',
     'nltk',
     'rouge',
     'accelerate',

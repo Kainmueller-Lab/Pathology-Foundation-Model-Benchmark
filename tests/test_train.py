@@ -25,5 +25,17 @@ def test_train():
         assert "checkpoints" in os.listdir(os.path.join(log_dir, "train"))
         assert "summary" in os.listdir(os.path.join(log_dir, "train"))
         assert "best_model.pth" in os.listdir(os.path.join(log_dir, "train", "checkpoints"))
-        # check if loss decreases
-        # assert loss_history[0] > loss_history[-1]
+        # # test hovernext
+        cfg_path = root / "configs" / "hovernext_config.yaml"
+        cfg = OmegaConf.load(cfg_path)
+        cfg.experiment = "mock_experiment"
+        cfg.experiment_path = tmp_dir
+        loss_history = train(cfg)
+        log_dir = os.path.join(cfg.experiment_path, cfg.experiment)
+        # check if files and folders got created
+        assert "train" in os.listdir(log_dir)
+        assert "config.yaml" in os.listdir(log_dir)
+        assert "snaps" in os.listdir(os.path.join(log_dir, "train"))
+        assert "checkpoints" in os.listdir(os.path.join(log_dir, "train"))
+        assert "summary" in os.listdir(os.path.join(log_dir, "train"))
+        assert "best_model.pth" in os.listdir(os.path.join(log_dir, "train", "checkpoints"))

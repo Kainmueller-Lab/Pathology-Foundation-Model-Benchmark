@@ -1,50 +1,49 @@
 project: patho_benchmark
-experiment: unetr1.4
+experiment: hovernext_lizard
 experiment_path: experiments
-training_steps: 10000
+training_steps: 20
 log_interval: 10
-val_interval: 200
-multiprocessing: true
-num_workers: 4
+val_interval: 10
+multiprocessing: false
+num_workers: 0
 seed: 42
 primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
 
-dataset:
-  name: 'schuerch'
-  batch_size: 128
+dataset: # WATCH OUT
+  name: 'lizard_small' 
+  path: tests/test_data/small_lizard_lmdb
+  split: tests/test_data/small_lizard_train_test_val_split.csv
+  label_dict: tests/test_data/label_dict.json
+  batch_size: 8
   uniform_class_sampling: True
   sample_excluded_classes: False
-  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/schuerch_dataset_split.csv
-  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
   
 model:
-  model_wrapper: UnetR
-  backbone: provgigapath #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
-  unfreeze_backbone: false
+  model_wrapper: HoverNext # WATCH OUT
+  backbone: MOCK # REPLACE WITH 'convnextv2_large.fcmae_ft_in22k_in1k'
+  unfreeze_backbone: true
 
 optimizer:
   name: AdamW
   params:
-    lr: 1e-5
+    lr: 3e-5
     weight_decay: 0.03
-  warmup_steps: 1000
+  warmup_steps: 100
 
 scheduler:
   name: CosineAnnealingLR
   params:
-    T_max: 10000
+    T_max: 200000
     eta_min: 1e-6
 
-loss_fn:
-  name: CrossEntropyLoss
+loss_fn: # WATCH OUT
+  name: FocalLoss
   params:
-    label_smoothing: 0.05
-    reduction: none
-  class_weighting: true
-
-  exclude_classes: [0]
+    reduction: mean
+    alpha: 1.0
+    gamma: 2.0
+  class_weighting: false
 
 augmentations:
   RandomHorizontalFlip:

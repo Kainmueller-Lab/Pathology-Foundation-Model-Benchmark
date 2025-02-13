@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import wandb
 from omegaconf import OmegaConf
+import kornia
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -24,6 +25,7 @@ from benchmark.utils import (
     prep_datasets,
     save_imgs_for_debug,
 )
+from benchmark.hovernext import HoverNext
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
@@ -91,15 +93,18 @@ def initialize_dist(model):
 
 
 def create_loss_fn(cfg, label_dict):
-    loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
-    if hasattr(cfg.loss_fn, "exclude_classes"):
-        print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
-        loss_fn = EMAInverseClassFrequencyLoss(
-            loss_fn=loss_fn,
-            num_classes=len(label_dict),
-            exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
-            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
-        )
+    if hasattr(torch.nn, cfg.loss_fn.name):
+        loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
+        if hasattr(cfg.loss_fn, "exclude_classes"):
+            print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
+            loss_fn = EMAInverseClassFrequencyLoss(
+                loss_fn=loss_fn,
+                num_classes=len(label_dict),
+                exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
+                class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
+            )
+    elif hasattr(kornia.losses, cfg.loss_fn.name):
+        loss_fn = getattr(kornia.losses, cfg.loss_fn.name)(**cfg.loss_fn.params)
     return loss_fn
 
 
@@ -112,26 +117,25 @@ def worker_init_fn(worker_id):  # noqa: D103
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
+def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
+    print("-------- printing dataset stats -------")
+    print(f"Number of classes: {len(label_dict.keys())}")
+    print(f"Unique samples: {len(label_dict.keys())}")
+
+    def print_ds(ds):
+        print(f"Number of samples: {len(ds)}")
+
+    print("Train")
+    print_ds(train_dset)
+    print("Val")
+    print_ds(val_dset)
+    print("Test")
+    print_ds(test_dset)
+    
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
     best_model_path = os.path.join(checkpoint_path, "best_model.pth")
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
-
-    def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
-        print("-------- printing dataset stats -------")
-        print(f"Number of classes: {len(label_dict.keys())}")
-        print(f"Unique samples: {len(label_dict.keys())}")
-
-        def print_ds(ds):
-            print(f"Number of samples: {len(ds)}")
-
-        print("Train")
-        print_ds(train_dset)
-        print("Val")
-        print_ds(val_dset)
-        print("Test")
-        print_ds(test_dset)
-
     print_ds_stats(train_dset, val_dset, test_dset, label_dict)
     model_wrapper = eval(cfg.model.model_wrapper)
     model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
@@ -148,12 +152,8 @@ def train(cfg):  # noqa: D103
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
-
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
-
-    # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
-    #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
     model, device, WORLD_SIZE, LOCAL_RANK = initialize_dist(model)
 
@@ -217,6 +217,8 @@ def train(cfg):  # noqa: D103
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
                 scaler.step(optimizer)
                 scaler.update()
 
@@ -271,9 +273,7 @@ def train(cfg):  # noqa: D103
                     if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
                         torch.save(model.state_dict(), best_model_path)
                         best_checkpoint_step = step
-
                 model.train()
-
             step += 1
 
     # Testing
