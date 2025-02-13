@@ -1,9 +1,10 @@
-import lmdb
 import pickle
+
+import lmdb
 from torch.utils.data import Dataset
 
 
-class LMDBDataset(Dataset):
+class LMDBDataset(Dataset):  # noqa: D101
     def __init__(self, path, include_sample_names=None):
         """
         Initializes the LMDBDataset.
@@ -22,9 +23,7 @@ class LMDBDataset(Dataset):
         self._filter_lmdb_indices()
 
     def _filter_lmdb_indices(self):
-        """
-        Filters LMDB keys based on the include_sample_names list.
-        """
+        """Filters LMDB keys based on the include_sample_names list."""
         with self.env.begin(write=False) as txn:
             # Retrieve all keys and associated sample names
             include_keys = []
@@ -37,21 +36,19 @@ class LMDBDataset(Dataset):
                 elif data["sample_name"] in self.include_sample_names:
                     include_keys.append(key)
         self.lmdb_key_list = include_keys
-        
+
     def __len__(self):
-        """
-        Returns the number of filtered tiles in the dataset.
-        """
+        """Returns the number of filtered tiles in the dataset."""
         return len(self.lmdb_key_list)
 
     def __getitem__(self, idx):
-        """
-        Retrieves a tile from the LMDB file based on the given index.
+        """Retrieves a tile from the LMDB file based on the given index.
 
         Args:
             idx (int): Index of the tile to retrieve.
 
-        Returns:
+        Returns
+        -------
             dict: The data associated with the tile.
         """
         if idx < 0 or idx >= len(self.lmdb_key_list):

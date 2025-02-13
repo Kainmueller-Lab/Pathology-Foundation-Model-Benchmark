@@ -1,11 +1,14 @@
-from typing import Union, Tuple
-import pandas as pd
-import numpy as np
-from benchmark.lmdb_dataset import LMDBDataset
 import json
+import os
+from typing import Union
+
+import h5py
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
-from typing import Union
+
+from benchmark.lmdb_dataset import LMDBDataset
 
 
 def get_height_width(array):
@@ -14,10 +17,12 @@ def get_height_width(array):
     Args:
         array (np.ndarray): A NumPy array with 2 or 3 dimensions.
 
-    Returns:
+    Returns
+    -------
         int, int: The height and width of the array.
 
-    Raises:
+    Raises
+    ------
         ValueError: If the input array has an invalid number of dimensions.
     """
     # Get the dimensions of the image
@@ -36,7 +41,8 @@ def to_tuple(dim: Union[int, tuple[int, ...]]) -> tuple[int, ...]:
     Args:
         dim (int or tuple of int): The input dimension.
 
-    Returns:
+    Returns
+    -------
         tuple of int: The dimension as a tuple of two integers, or
         the tuple itself.
     """
@@ -54,20 +60,21 @@ def prep_datasets(cfg):
     Args:
         cfg (omegaconf): The configuration object.
 
-    Returns:
+    Returns
+    -------
         tuple: A tuple containing the train, validation, test datasets, and the label dictionary.
     """
     # load split .csv
-    split_df = pd.read_csv(cfg.dataset.split) 
+    split_df = pd.read_csv(cfg.dataset.split)
     # enforce column names
-    assert set(['sample_name', 'train_test_val_split']) == set(split_df.columns)
+    assert {"sample_name", "train_test_val_split"} == set(split_df.columns)
     # enfore split names
-    assert set(['train', 'test', 'valid']) == set(split_df['train_test_val_split'].unique())
+    assert {"train", "test", "valid"} == set(split_df["train_test_val_split"].unique())
     label_dict = json.load(open(cfg.dataset.label_dict))
     # load dataset
     datasets = []
-    for split in ['train', 'valid', 'test']:
-        include_fovs = split_df[split_df['train_test_val_split'] == split]['sample_name'].tolist()
+    for split in ["train", "valid", "test"]:
+        include_fovs = split_df[split_df["train_test_val_split"] == split]["sample_name"].tolist()
         dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_fovs)
         datasets.append(dataset)
     datasets.append(label_dict)
@@ -75,16 +82,17 @@ def prep_datasets(cfg):
 
 
 def exclude_classes(
-        exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    exclude_classes: Union[int, list[int]], loss: torch.Tensor, target: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Exclude specified classes from the loss calculation.
 
     Args:
         exclude_classes (int or list of ints): Classes to exclude from the loss calculation.
         loss (torch.Tensor): The calculated loss.
         target (torch.Tensor): The target tensor.
-    
-    Returns:
+
+    Returns
+    -------
         tuple: A tuple containing the modified loss and mask tensors.
     """
     mask = torch.ones_like(loss)
@@ -101,6 +109,7 @@ class ExcludeClassLossWrapper(nn.Module):
         loss_fn (nn.Module): The loss function to wrap.
         exclude_class (int or list of ints): Classes to exclude from the loss calculation.
     """
+
     def __init__(self, loss_fn: nn.Module, exclude_class: Union[int, list[int]]):
         super().__init__()
         self.loss_fn = loss_fn
@@ -111,12 +120,13 @@ class ExcludeClassLossWrapper(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Calculate the loss, excluding specified classes.
-        
+
         Args:
             pred (torch.Tensor): The predicted tensor.
             target (torch.Tensor): The target tensor.
-        
-        Returns:
+
+        Returns
+        -------
             torch.Tensor: The calculated loss.
         """
         # Calculate the loss only for included classes
@@ -126,7 +136,9 @@ class ExcludeClassLossWrapper(nn.Module):
 
 
 class EMAInverseClassFrequencyLoss(nn.Module):
-    """A loss wrapper that uses exponential moving average (EMA) of the inverse class frequency
+    """A loss wrapper with EMA loss weighting.
+
+    Uses exponential moving average (EMA) of the inverse class frequency
     for loss weighting and excludes specified classes.
 
     Args:
@@ -135,10 +147,15 @@ class EMAInverseClassFrequencyLoss(nn.Module):
         num_classes (int): Total number of classes in the dataset.
         alpha (float): Smoothing factor for EMA, default is 0.99.
     """
+
     def __init__(
-        self, loss_fn: nn.Module, exclude_class: Union[int, list[int]], num_classes: int,
-        alpha: float = 0.99, class_weighting=False
-        ):
+        self,
+        loss_fn: nn.Module,
+        exclude_class: Union[int, list[int]],
+        num_classes: int,
+        alpha: float = 0.99,
+        class_weighting=False,
+    ):
         super().__init__()
         self.loss_fn = loss_fn
         self.exclude_class = exclude_class
@@ -161,7 +178,8 @@ class EMAInverseClassFrequencyLoss(nn.Module):
     def calculate_weights(self):
         """Calculate inverse class frequency weights from EMA frequencies.
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: The weights for each class.
         """
         inverse_frequencies = 1.0 / (self.ema_frequencies + 1e-6)
@@ -174,7 +192,8 @@ class EMAInverseClassFrequencyLoss(nn.Module):
             pred (torch.Tensor): The predicted tensor.
             target (torch.Tensor): The target tensor.
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: The calculated loss.
         """
         if self.class_weighting:
@@ -185,7 +204,7 @@ class EMAInverseClassFrequencyLoss(nn.Module):
             weights = self.calculate_weights()
             for c in self.exclude_class:
                 weights[c] = 0
-            
+
             self.loss_fn.weight = weights.to(pred.device).softmax(dim=0)
 
         # Apply weights to loss
@@ -195,8 +214,7 @@ class EMAInverseClassFrequencyLoss(nn.Module):
 
 
 def get_weighted_sampler(ds, classes):
-    """
-    Generate a weighted sampler for the given dataset based on the given classes.
+    """Generate a weighted sampler for the given dataset based on the given classes.
 
     The sampler is designed to sample more often from classes that have fewer pixels in the dataset.
 
@@ -204,20 +222,18 @@ def get_weighted_sampler(ds, classes):
         ds (Dataset): The dataset to sample from.
         classes (list): The classes to sample from.
 
-    Returns:
+    Returns
+    -------
         torch.utils.data.sampler.WeightedRandomSampler: The weighted sampler.
     """
-
     count_list = []
     for sample in ds:
         semantic_mask = sample["semantic_mask"]
         tmp_list = []
         for c in classes:
-            tmp_list.append(
-                np.count_nonzero(semantic_mask == c)
-            )  # sum of individual classes for a sample
+            tmp_list.append(np.count_nonzero(semantic_mask == c))  # sum of individual classes for a sample
         count_list.append(np.stack(tmp_list))
-    
+
     counts = np.stack(count_list)  # n_samples x classes
     sampling_weights = np.divide(
         counts,
@@ -231,3 +247,50 @@ def get_weighted_sampler(ds, classes):
         replacement=True,
     )
     return sampler
+
+
+def save_imgs_for_debug(
+    snap_dir,
+    step,
+    img,
+    pred_mask,
+    semantic_mask,
+    img_aug,
+    semantic_mask_aug,
+    instance_mask=None,
+    instance_mask_aug=None,
+):
+    """
+    Saves images and masks for debugging purposes to an HDF5 file.
+
+    Args:
+        snap_dir (str): The directory where the snapshot file will be saved.
+        step (int): The current step or iteration number, used to name the snapshot file.
+        img (torch.Tensor): The original input image tensor.
+        pred_mask (torch.Tensor): The predicted mask tensor with logits.
+        semantic_mask (torch.Tensor): The original semantic mask tensor.
+        img_aug (torch.Tensor): The augmented input image tensor.
+        semantic_mask_aug (torch.Tensor): The augmented semantic mask tensor.
+        instance_mask (torch.Tensor, optional): The original instance mask tensor. Default is None.
+        instance_mask_aug (torch.Tensor, optional): The augmented instance mask tensor. Default is None.
+
+    Note:
+        The saved HDF5 file will contain the datasets: 'img', 'pred_mask', 'semantic_mask', 
+        'img_aug', 'semantic_mask_aug', and optionally 'instance_mask' and 'instance_mask_aug' if provided.
+    """
+
+    with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
+        f.create_dataset("img", data=img.cpu().detach().numpy().astype(np.float32))
+        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32))
+        f.create_dataset("semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
+        f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy().astype(np.float32))
+        f.create_dataset(
+            "semantic_mask_aug",
+            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+        )
+        if instance_mask is not None:
+            f.create_dataset("instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
+            f.create_dataset(
+                "instance_mask_aug",
+                data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+            )
