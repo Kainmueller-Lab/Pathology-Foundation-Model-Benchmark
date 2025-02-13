@@ -11,7 +11,7 @@ import timm
 from benchmark.simple_segmentation_model import clean_str
 
 
-class MockModel(nn.Module):
+class HoverMockModel(nn.Module):
     """Mock model for testing."""
     def __init__(self, num_classes):
         super().__init__()
@@ -25,7 +25,7 @@ class HoverNext(nn.Module):
     def __init__(self, model_name="convnextv2_large.fcmae_ft_in22k_in1k", num_classes=8):
         super().__init__()
         if clean_str(model_name) == "mock":
-            self.model = MockModel(num_classes)
+            self.model = HoverMockModel(num_classes)
         else:
             self.model = get_model(
                 enc=model_name,
