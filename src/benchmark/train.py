@@ -318,4 +318,6 @@ if __name__ == "__main__":
         cfg.early_stopping = MAX_EARLY_STOPPING
     if not hasattr(cfg, "save_snapshots"):
         cfg.save_snapshots = False
+    if not hasattr(cfg, "save_all_ckpts"):
+        cfg.save_all_ckpts = False
     train(cfg)
