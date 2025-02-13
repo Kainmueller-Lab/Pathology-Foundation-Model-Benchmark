@@ -11,7 +11,6 @@
 #SBATCH --mem=120G
 #SBATCH --partition=gpu
 
-
 echo "================ Job Info ================"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $HOSTNAME"

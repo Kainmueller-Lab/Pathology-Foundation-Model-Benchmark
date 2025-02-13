@@ -12,7 +12,7 @@ save_all_ckpts: false # watch out for memory
 
 dataset:
   name: 'schuerch'
-  batch_size: 128
+  batch_size: 64
   uniform_class_sampling: True
   sample_excluded_classes: False
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb

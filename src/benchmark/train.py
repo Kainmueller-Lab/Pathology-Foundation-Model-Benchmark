@@ -61,12 +61,59 @@ def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None)
     return train_dataloader, val_dataloader, test_dataloader
 
 
+def build_lr_scheduler(cfg, optimizer):
+    lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer,
+        [  # linear warmup
+            torch.optim.lr_scheduler.LinearLR(
+                optimizer, start_factor=0.1, end_factor=1.0, total_iters=cfg.optimizer.warmup_steps
+            ),
+            getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(optimizer, **cfg.scheduler.params),
+        ],
+        milestones=[cfg.optimizer.warmup_steps],
+    )
+    return lr_scheduler
+
+
+def initialize_dist(model):
+    if "RANK" in os.environ:
+        LOCAL_RANK, LOCAL_WORLD_SIZE, RANK, WORLD_SIZE = init_distributed()
+        device = torch.device(f"cuda:{LOCAL_RANK}")
+        model = model.cuda()
+        model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK, find_unused_parameters=True)
+    else:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        WORLD_SIZE = 1
+        model = model.to(device)
+    print(f"Device: {device}")
+    return model, device, WORLD_SIZE, LOCAL_RANK
+
+
+def create_loss_fn(cfg, label_dict):
+    loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
+    if hasattr(cfg.loss_fn, "exclude_classes"):
+        print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
+        loss_fn = EMAInverseClassFrequencyLoss(
+            loss_fn=loss_fn,
+            num_classes=len(label_dict),
+            exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
+            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
+        )
+    return loss_fn
+
+
+def save_config(cfg):
+    with open(os.path.join(cfg.experiment_path, cfg.experiment, "config.yaml"), "w") as f:
+        OmegaConf.save(config=cfg, f=f)
+
+
 def worker_init_fn(worker_id):  # noqa: D103
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
+    best_model_path = os.path.join(checkpoint_path, "best_model.pth")
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
 
     def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
@@ -107,17 +154,7 @@ def train(cfg):  # noqa: D103
     # metric_names = ["precision_macro", "recall_macro", "f1_score_macro", "accuracy_macro",
     #     "precision_micro", "recall_micro", "f1_score_micro", "accuracy_micro", "classwise_metrics"]
 
-    # initialize dist
-    if "RANK" in os.environ:
-        LOCAL_RANK, LOCAL_WORLD_SIZE, RANK, WORLD_SIZE = init_distributed()
-        device = torch.device(f"cuda:{LOCAL_RANK}")
-        model = model.cuda()
-        model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK, find_unused_parameters=True)
-    else:
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        WORLD_SIZE = 1
-        model = model.to(device)
-    print(f"Device: {device}")
+    model, device, WORLD_SIZE, LOCAL_RANK = initialize_dist(model)
 
     # log only on rank 0
     if "RANK" in os.environ and LOCAL_RANK == 0 or "mock" not in cfg.experiment.lower():
@@ -145,32 +182,15 @@ def train(cfg):  # noqa: D103
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(
         cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler
     )
-    loss_fn = getattr(torch.nn, cfg.loss_fn.name)(**cfg.loss_fn.params)
-    if hasattr(cfg.loss_fn, "exclude_classes"):
-        print(f"Excluding classes from loss calculation: {cfg.loss_fn.exclude_classes}")
-        loss_fn = EMAInverseClassFrequencyLoss(
-            loss_fn=loss_fn,
-            num_classes=len(label_dict),
-            exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
-            class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
-        )
+
+    loss_fn = create_loss_fn(cfg, label_dict)
 
     # this maybe needs to change depending on how the model_wrapper is implemented
     optimizer = getattr(torch.optim, cfg.optimizer.name)(list(model.parameters()), **cfg.optimizer.params)
 
-    lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
-        optimizer,
-        [  # linear warmup
-            torch.optim.lr_scheduler.LinearLR(
-                optimizer, start_factor=0.1, end_factor=1.0, total_iters=cfg.optimizer.warmup_steps
-            ),
-            getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(optimizer, **cfg.scheduler.params),
-        ],
-        milestones=[cfg.optimizer.warmup_steps],
-    )
-    # save parameters
-    with open(os.path.join(cfg.experiment_path, cfg.experiment, "config.yaml"), "w") as f:
-        OmegaConf.save(config=cfg, f=f)
+    lr_scheduler = build_lr_scheduler(cfg, optimizer)
+
+    save_config(cfg)
 
     # training pipeline
     step = 0
@@ -189,8 +209,6 @@ def train(cfg):  # noqa: D103
             semantic_mask = semantic_mask.to(device)
             instance_mask = instance_mask.to(device)
             img_aug, semantic_mask_aug, instance_mask_aug = augment_fn(img, semantic_mask, instance_mask)
-            # augment_fn adds an extra dimension to the masks. Remove it, if it exists
-            # the extra dimension throws an error at the loss function
             semantic_mask_aug = semantic_mask_aug.squeeze(1)  # Remove the extra dimension
             instance_mask_aug = instance_mask_aug.squeeze(1)  # Remove the extra dimension
             with torch.autocast(device_type=device.type, dtype=torch.float16):
@@ -200,6 +218,7 @@ def train(cfg):  # noqa: D103
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+
                 lr_scheduler.step()
                 optimizer.zero_grad()
                 loss_tmp.append(loss.cpu().detach().numpy())
@@ -213,9 +232,10 @@ def train(cfg):  # noqa: D103
                     )
                 if step % cfg.log_interval == 0:
                     print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
+
             # log at cfg.val_interval or at the end of training
             if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
-                # validate
+                # validating
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
                 logging_dict, classwise_dict = evaluater.compute_metrics(model, val_dataloader, device)
@@ -225,13 +245,12 @@ def train(cfg):  # noqa: D103
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
                 loss_tmp = []
-                model.train()
                 if logging:
                     wandb.log(logging_dict, step=step)
                     wandb.log(classwise_dict, step=step)
                 if logging or "RANK" not in os.environ:
-                    model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
                     if cfg.save_all_ckpts:
+                        model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
                         torch.save(model.state_dict(), model_path)
                     if step % (10 * cfg.val_interval) == 0:
                         save_imgs_for_debug(
@@ -249,13 +268,16 @@ def train(cfg):  # noqa: D103
                     primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
                 if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
                     if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
-                        model_path = os.path.join(checkpoint_path, "best_model.pth")
-                        torch.save(model.state_dict(), model_path)
+                        torch.save(model.state_dict(), best_model_path)
                         best_checkpoint_step = step
+
+                model.train()
+
             step += 1
 
+    # Testing
     if hasattr(cfg, "primary_metric"):
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(best_model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
         logging_dict, classwise_dict = evaluater.compute_metrics(model, test_dataloader, device)
