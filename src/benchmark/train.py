@@ -241,7 +241,7 @@ def train(cfg):  # noqa: D103
                     print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
 
             # log at cfg.val_interval or at the end of training
-            if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
+            if step > 0 and (step % cfg.val_interval == 0 or step == cfg.training_steps - 1):
                 # validating
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
@@ -259,7 +259,7 @@ def train(cfg):  # noqa: D103
                     if cfg.save_all_ckpts:
                         model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
                         torch.save(model.state_dict(), model_path)
-                    if step % (10 * cfg.val_interval) == 0:
+                    if cfg.save_snapshots and step % (10 * cfg.val_interval) == 0:
                         save_imgs_for_debug(
                             snap_dir,
                             step,
@@ -316,4 +316,6 @@ if __name__ == "__main__":
     print(f"Experiment name: {cfg.experiment}")
     if not hasattr(cfg, "early_stopping"):
         cfg.early_stopping = MAX_EARLY_STOPPING
+    if not hasattr(cfg, "save_snapshots"):
+        cfg.save_snapshots = False
     train(cfg)
