@@ -29,6 +29,7 @@ from benchmark.hovernext import HoverNext
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
+MAX_EARLY_STOPPING = 5000
 
 
 def make_log_dirs(cfg):
@@ -131,7 +132,8 @@ def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
     print_ds(val_dset)
     print("Test")
     print_ds(test_dset)
-    
+
+
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
     best_model_path = os.path.join(checkpoint_path, "best_model.pth")
@@ -152,6 +154,7 @@ def train(cfg):  # noqa: D103
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
+
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 
@@ -195,12 +198,13 @@ def train(cfg):  # noqa: D103
 
     # training pipeline
     step = 0
+    steps_since_last_best = 0
     loss_history = []
     primary_metric_history = []
     print("Start training")
     np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
     loss_tmp = []
-    while step < cfg.training_steps:
+    while step < cfg.training_steps and steps_since_last_best < cfg.early_stopping:
         model.train()  # maybe change depending on how the model_wrapper is implemented
         for sample_dict in train_dataloader:
             img = sample_dict["image"].float()
@@ -269,10 +273,14 @@ def train(cfg):  # noqa: D103
                         )
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
+                    steps_since_last_best += cfg.val_interval
                 if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
                     if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
                         torch.save(model.state_dict(), best_model_path)
                         best_checkpoint_step = step
+                        steps_since_last_best = 0
+                        print(f"Found new BEST model at step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
+
                 model.train()
             step += 1
 
@@ -306,5 +314,6 @@ if __name__ == "__main__":
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
     print(f"Experiment name: {cfg.experiment}")
-
+    if not hasattr(cfg, "early_stopping"):
+        cfg.early_stopping = MAX_EARLY_STOPPING
     train(cfg)

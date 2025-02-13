@@ -68,8 +68,8 @@ class Eval:
         with torch.no_grad():
             for sample_dict in tqdm(dataloader):
                 img = sample_dict["image"].float().to(device)
-                semantic_mask = sample_dict["semantic_mask"].numpy()
-                instance_mask = sample_dict.get("instance_mask", None)
+                semantic_mask = sample_dict["semantic_mask"].numpy().astype(np.uint8)
+                instance_mask = sample_dict.get("instance_mask", None).numpy().astype(np.uint8)
                 sample_name = sample_dict.get("sample_name", None)
 
                 # Run model to get predictions
@@ -84,7 +84,7 @@ class Eval:
                         pred_df = self._get_instance_level_labels(
                             pred_probs[i],
                             semantic_mask[i],
-                            instance_mask[i].numpy(),
+                            instance_mask[i],
                         )
                         pred_df["sample_name"] = sample_name[i]
                         pred_dfs.append(pred_df)
