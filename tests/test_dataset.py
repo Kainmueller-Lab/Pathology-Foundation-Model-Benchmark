@@ -26,15 +26,15 @@ def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
                 continue
 
             if i == 0:
-                semantic_mask = np.ones([224,224])
+                semantic_mask = np.ones([224, 224])
             else:
-                semantic_mask = np.zeros([224,224])
+                semantic_mask = np.zeros([224, 224])
 
             tile_dict = {
                 "tile_name": f"{sample_name}_tile_{i}",
                 "sample_name": sample_name,
                 "data": np.random.rand(224, 224, 3).tolist(),
-                "semantic_mask": semantic_mask
+                "semantic_mask": semantic_mask,
             }
             key = f"{i:08}".encode("ascii")
             txn.put(key, pickle.dumps(tile_dict))
@@ -50,6 +50,7 @@ def test_len():
         dataset = LMDBDataset(path=lmdb_path)
         assert len(dataset) == 5
         del dataset
+
 
 def test_getitem():
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -101,9 +102,10 @@ def test_no_include_sample_names():
             assert sample["sample_name"].startswith("sample_")
         del dataset
 
+
 def test_sampler():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        lmdb_path = f"{tmp_dir}/mock_lmdb"
+        lmdb_path = f"{tmp_dir}/mock_lmdb_sampler"
         os.makedirs(os.path.dirname(lmdb_path), exist_ok=True)
         create_mock_lmdb(lmdb_path, num_samples=5)
         dataset = LMDBDataset(path=lmdb_path)

@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --gres=gpu:H100-SXM5:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-gpu=10
 #SBATCH --nodes=1
@@ -10,6 +9,8 @@
 #SBATCH --account=kainmueller
 #SBATCH --mem=120G
 #SBATCH --partition=gpu
+#SBACTH --gres=gpu_memory:45G
+#SBATCH --gres=gpu:1
 
 echo "================ Job Info ================"
 echo "Job ID: $SLURM_JOB_ID"
