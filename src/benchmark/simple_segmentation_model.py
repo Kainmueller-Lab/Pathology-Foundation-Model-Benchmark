@@ -155,19 +155,28 @@ def load_model_and_transform(
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
     elif model_name == "phikonv2":
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
-        model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=features_only)
+        model = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=features_only,
+                                          torch_dtype=torch.float32)  # Explicitly set model dtype to match internal layers
+        # the eval pipeline crashes, if it gets float16 tensors. Setting the model dtype to float32 fixes this issue.
         if not features_only:
-            model.forward_patches = (
-                lambda x: model(x)
-                .last_hidden_state[:, 1:, :]
-                .reshape(
-                    x.shape[0],
-                    int(model_cfg.img_size / model_cfg.patch_size),
-                    int(model_cfg.img_size / model_cfg.patch_size),
-                    -1,
+            def forward_patches(x):
+                # Get the device from the model's parameters
+                device = next(model.parameters()).device
+                # Ensure input is on same device as model
+                x = x.to(device=device, dtype=torch.float32)
+                output = model(x)
+                return (output
+                    .last_hidden_state[:, 1:, :]
+                    .reshape(
+                        x.shape[0],
+                        int(model_cfg.img_size / model_cfg.patch_size),
+                        int(model_cfg.img_size / model_cfg.patch_size),
+                        -1,
+                    )
+                    .permute(0, 3, 1, 2)
                 )
-                .permute(0, 3, 1, 2)
-            )
+            
+            model.forward_patches = forward_patches
         else:
             # TODO reshape here?
             model.forward_patches = lambda x: model(x).hidden_states[:-4]
