@@ -4,9 +4,10 @@ from typing import Sequence, Union
 
 import timm
 import torch
+from omegaconf import ListConfig
 from dotenv import load_dotenv
 from huggingface_hub import login
-from musk import utils
+from musk import utils, modeling # modeling is needed to register musk with timm
 from omegaconf import OmegaConf
 from timm.data import resolve_data_config
 from timm.data.constants import (
@@ -45,7 +46,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         self.model_name = clean_str(model_name)
         self.model, self.transform, model_dim, _, _ = load_model_and_transform(model_name)
         # In channels here sometimes are a list which results in a crash
-        in_channels = model_dim[-1] if isinstance(model_dim, (list, tuple)) else model_dim
+        in_channels = model_dim[-1] if isinstance(model_dim, (list, tuple, ListConfig)) else model_dim
         self.head = torch.nn.Conv2d(in_channels=in_channels, out_channels=num_classes, kernel_size=1)
         self.model.eval()
         self.freeze_model()
@@ -290,7 +291,7 @@ def load_model_and_transform(
 
         model.forward_patches = (
             lambda x: model(
-                x.to(device="cuda", dtype=torch.float32),
+                x.to(x.device, dtype=torch.float32),  # Use x.device instead of "cuda"
                 with_head=False,
                 out_norm=False,
                 ms_aug=False,
