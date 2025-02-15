@@ -44,7 +44,9 @@ class SimpleSegmentationModel(torch.nn.Module):
         super().__init__()
         self.model_name = clean_str(model_name)
         self.model, self.transform, model_dim, _, _ = load_model_and_transform(model_name)
-        self.head = torch.nn.Conv2d(in_channels=model_dim, out_channels=num_classes, kernel_size=1)
+        # In channels here sometimes are a list which results in a crash
+        in_channels = model_dim[-1] if isinstance(model_dim, (list, tuple)) else model_dim
+        self.head = torch.nn.Conv2d(in_channels=in_channels, out_channels=num_classes, kernel_size=1)
         self.model.eval()
         self.freeze_model()
 
