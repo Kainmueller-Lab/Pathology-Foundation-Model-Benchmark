@@ -1,4 +1,5 @@
 project: patho_benchmark
+experiment: SimpleModel_experiment_1
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
