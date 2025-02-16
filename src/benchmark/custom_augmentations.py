@@ -4,21 +4,20 @@ import kornia.augmentation as K
 from typing import Optional
 
 
-RGB_FROM_HED = np.array(
-    [[0.65, 0.70, 0.29], [0.07, 0.99, 0.11], [0.27, 0.57, 0.78]], dtype=np.float32
-)
+RGB_FROM_HED = np.array([[0.65, 0.70, 0.29], [0.07, 0.99, 0.11], [0.27, 0.57, 0.78]], dtype=np.float32)
 HED_FROM_RGB = np.linalg.inv(RGB_FROM_HED)
 
 
 def torch_rgb2hed(img, hed_t, e):
     """Converts an RGB image to HED color space.
-    
+
     Args:
         img (torch.Tensor): Image in RGB color space.
         hed_t (torch.Tensor): Transformation tensor.
         e (torch.Tensor): Small value to avoid log(0).
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: Image in HED color space.
     """
     img = img.movedim(-3, -1)
@@ -49,7 +48,10 @@ def torch_hed2rgb(img, rgb_t, e):
 
 class HEDNormalize(K.IntensityAugmentationBase2D):
     def __init__(
-        self, sigma: float = 0.05, bias: float = 0.1, same_on_batch: bool = False, 
+        self,
+        sigma: float = 0.05,
+        bias: float = 0.1,
+        same_on_batch: bool = False,
         keepdim: bool = False,
     ):
         """Transforms RGB images to HED color space and adds augmentations in HED space before
@@ -60,10 +62,12 @@ class HEDNormalize(K.IntensityAugmentationBase2D):
             bias (float): Maximum value for the random color bias.
             same_on_batch (bool): Apply the same transformation across the batch.
             keepdim (bool): Keep the output shape the same as the input.
-        
-        Returns:
+
+        Returns
+        -------
             torch.Tensor: Normalized image in RGB color space.
         """
+
         super().__init__(p=1.0, same_on_batch=same_on_batch, keepdim=keepdim)
         self.sigma = sigma
         self.bias = bias
@@ -104,13 +108,11 @@ class HEDNormalize(K.IntensityAugmentationBase2D):
         Returns:
             torch.Tensor: Normalized image in HED color space.
         """
-        return (img * (1 + sigmas.view(*sigmas.shape, 1, 1))) + biases.view(
-            *biases.shape, 1, 1
-        )
+        return (img * (1 + sigmas.view(*sigmas.shape, 1, 1))) + biases.view(*biases.shape, 1, 1)
 
     def apply_transform(
-            self, input: torch.Tensor, params: dict, flags, transform: Optional[torch.Tensor] = None
-        ) -> torch.Tensor:
+        self, input: torch.Tensor, params: dict, flags, transform: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Apply the transformation to the input tensor.
 
         Args:
@@ -119,7 +121,8 @@ class HEDNormalize(K.IntensityAugmentationBase2D):
             flags: Flags for the transformation.
             transform (torch.Tensor): Transformation tensor.
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: Transformed tensor.
         """
         batch_size = input.shape[0]

@@ -275,7 +275,7 @@ def save_imgs_for_debug(
         instance_mask_aug (torch.Tensor, optional): The augmented instance mask tensor. Default is None.
 
     Note:
-        The saved HDF5 file will contain the datasets: 'img', 'pred_mask', 'semantic_mask', 
+        The saved HDF5 file will contain the datasets: 'img', 'pred_mask', 'semantic_mask',
         'img_aug', 'semantic_mask_aug', and optionally 'instance_mask' and 'instance_mask_aug' if provided.
     """
 

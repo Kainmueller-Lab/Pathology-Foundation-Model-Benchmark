@@ -19,9 +19,7 @@ def test_accuracy():
     y_true = np.array([0, 1, 2, 2, 1])
     y_pred = np.array([0, 1, 2, 1, 1])
     assert accuracy(y_true, y_pred) == accuracy_score(y_true, y_pred)
-    assert accuracy(y_true, y_pred, class_id=1) == accuracy_score(
-        y_true[y_true == 1], y_pred[y_true == 1]
-    )
+    assert accuracy(y_true, y_pred, class_id=1) == accuracy_score(y_true[y_true == 1], y_pred[y_true == 1])
 
 
 def test_precision():

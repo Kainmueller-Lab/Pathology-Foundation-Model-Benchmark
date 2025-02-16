@@ -193,9 +193,10 @@ class UnetR(nn.Module):
             for layer in patch_embeddings[:4]:
                 reshaped_embed.append(
                     einops.rearrange(
-                        layer[:, 1:, :], "b (p1 p2) d -> b d p1 p2",
+                        layer[:, 1:, :],
+                        "b (p1 p2) d -> b d p1 p2",
                         p1=self.image_size // self.patch_size,
-                        p2=self.image_size // self.patch_size
+                        p2=self.image_size // self.patch_size,
                     )
                 )
             patch_embeddings = reshaped_embed
