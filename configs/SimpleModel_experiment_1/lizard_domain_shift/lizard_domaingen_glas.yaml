@@ -1,4 +1,5 @@
 project: patho_benchmark
+experiment: SimpleModel_experiment_1
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
@@ -10,9 +11,9 @@ primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
 
 dataset:
-  name: 'lizard'
+  name: 'lizard_domain_shift_glas'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/lizard_default_train_test_val_split.csv
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/domain_shift_splits/lizard_domaingen_glas_test_split.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/label_dict.json
   batch_size: 128
   uniform_class_sampling: True
