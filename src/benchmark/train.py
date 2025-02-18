@@ -3,18 +3,18 @@ import os
 from datetime import datetime
 from time import time
 
-import h5py
+import kornia
 import numpy as np
 import torch
 import wandb
 from omegaconf import OmegaConf
-import kornia
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from benchmark.augmentations import Augmenter
 from benchmark.eval import Eval
+from benchmark.hovernext import HoverNext
 from benchmark.init_dist import init_distributed
 from benchmark.simple_segmentation_model import MockModel, SimpleSegmentationModel
 from benchmark.unetr import UnetR
@@ -25,7 +25,6 @@ from benchmark.utils import (
     prep_datasets,
     save_imgs_for_debug,
 )
-from benchmark.hovernext import HoverNext
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
