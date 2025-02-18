@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH -e /home/jluesch/output_dir/log_%j.err
 #SBATCH -o /home/jluesch/output_dir/log_%j.out
-#SBATCH --time 0-20:00:00
+#SBATCH --time 0-10:00:00
 #SBATCH --nodelist=maxg[10,20]
 #SBATCH --account=kainmueller
 #SBATCH --mem=120G

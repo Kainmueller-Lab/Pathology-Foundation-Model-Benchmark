@@ -167,3 +167,5 @@ src/test.py
 configs/config_unetr_lizard.yaml
 configs/config_unetr_schuerch.yaml
 .vscode/launch.json
+launch_train_slurm.sh
+configs/config_unetr_schuerch.yaml
