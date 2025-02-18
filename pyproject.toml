@@ -157,6 +157,9 @@ ignore = [
     "D203",
     # We want docstrings to start immediately after the opening triple quote
     "D213",
+    "D102",
+    "D103",
+    "D101",
 ]
 extend-include = ["*.ipynb"]
 

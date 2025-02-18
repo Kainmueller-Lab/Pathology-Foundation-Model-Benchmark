@@ -1,18 +1,19 @@
 # adapted from https://github.com/digitalpathologybern/hover_next_train/blob/main/train.py
 
 import segmentation_models_pytorch as smp
+import segmentation_models_pytorch.base.initialization as init
+import timm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import OrderedDict
 from segmentation_models_pytorch.base import modules as md
-import segmentation_models_pytorch.base.initialization as init
-import timm
+
 from benchmark.simple_segmentation_model import clean_str
 
 
 class HoverMockModel(nn.Module):
     """Mock model for testing."""
+
     def __init__(self, num_classes):
         super().__init__()
         self.encoder = torch.nn.Conv2d(3, num_classes, kernel_size=3, padding=1)
@@ -58,6 +59,8 @@ class HoverNext(nn.Module):
 
 
 class TimmEncoderFixed(nn.Module):
+    """Timm encoder with fixed output stride."""
+
     def __init__(
         self,
         name,
@@ -112,9 +115,7 @@ def get_timm_encoder(
     drop_rate=0.5,
     drop_path_rate=0.25,
 ):
-    encoder = TimmEncoderFixed(
-        name, weights, in_channels, depth, output_stride, drop_rate, drop_path_rate
-    )
+    encoder = TimmEncoderFixed(name, weights, in_channels, depth, output_stride, drop_rate, drop_path_rate)
     return encoder
 
 
@@ -124,7 +125,7 @@ def get_model(
     pretrained=True,
 ):
     pre_path = None
-    if type(pretrained) == str:
+    if type(pretrained) is str:
         pre_path = pretrained
         pretrained = False
     # small fix to deal with large pooling in convnext type models:
@@ -160,7 +161,7 @@ def get_model(
     heads = [head_ct]
     model = MultiHeadModel(encoder, decoders, heads)
     if pre_path:
-        state_dict = torch.load(pre_path, map_location=f"cpu")["model_state_dict"]
+        state_dict = torch.load(pre_path, map_location="cpu")["model_state_dict"]
         new_state = model.state_dict()
         for k, v in state_dict.items():
             if k.startswith("encoder."):
@@ -170,6 +171,8 @@ def get_model(
 
 
 class Conv2dReLU(nn.Sequential):
+    """Conv2d -> ReLU."""
+
     def __init__(
         self,
         in_channels,
@@ -195,7 +198,7 @@ class Conv2dReLU(nn.Sequential):
         else:
             bn = nn.Identity()
 
-        super(Conv2dReLU, self).__init__(conv, bn, relu)
+        super().__init__(conv, bn, relu)
 
 
 class DecoderBlock(nn.Module):
@@ -215,9 +218,7 @@ class DecoderBlock(nn.Module):
             padding=1,
             use_batchnorm=use_batchnorm,
         )
-        self.attention1 = md.Attention(
-            attention_type, in_channels=in_channels + skip_channels
-        )
+        self.attention1 = md.Attention(attention_type, in_channels=in_channels + skip_channels)
         self.conv2 = md.Conv2dReLU(
             out_channels,
             out_channels,
@@ -272,9 +273,7 @@ class UnetDecoder(nn.Module):
 
         if n_blocks != len(decoder_channels):
             raise ValueError(
-                "Model depth is {}, but you provide `decoder_channels` for {} blocks.".format(
-                    n_blocks, len(decoder_channels)
-                )
+                f"Model depth is {n_blocks}, but you provide `decoder_channels` for {len(decoder_channels)} blocks."
             )
 
         # remove first skip with same spatial resolution
@@ -289,22 +288,18 @@ class UnetDecoder(nn.Module):
         out_channels = decoder_channels
 
         if center:
-            self.center = CenterBlock(
-                head_channels, head_channels, use_batchnorm=use_batchnorm
-            )
+            self.center = CenterBlock(head_channels, head_channels, use_batchnorm=use_batchnorm)
         else:
             self.center = nn.Identity()
 
         # combine decoder keyword arguments
-        kwargs = dict(use_batchnorm=use_batchnorm, attention_type=attention_type)
+        kwargs = {"use_batchnorm": use_batchnorm, "attention_type": attention_type}
         blocks = [
             DecoderBlock(in_ch, skip_ch, out_ch, **kwargs)
             for in_ch, skip_ch, out_ch in zip(in_channels, skip_channels, out_channels)
         ]
         if next:
-            blocks.append(
-                DecoderBlock(out_channels[-1], 0, out_channels[-1] // 2, **kwargs)
-            )
+            blocks.append(DecoderBlock(out_channels[-1], 0, out_channels[-1] // 2, **kwargs))
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, *features):
@@ -324,7 +319,7 @@ class UnetDecoder(nn.Module):
 
 class MultiHeadModel(torch.nn.Module):
     def __init__(self, encoder, decoder_list, head_list):
-        super(MultiHeadModel, self).__init__()
+        super().__init__()
         self.encoder = nn.ModuleList([encoder])[0]
         self.decoders = nn.ModuleList(decoder_list)
         self.heads = nn.ModuleList(head_list)
@@ -337,7 +332,7 @@ class MultiHeadModel(torch.nn.Module):
             init.initialize_head(head)
 
     def forward(self, x):
-        """Sequentially pass `x` trough model`s encoder, decoder and heads"""
+        """Sequentially pass `x` trough model`s encoder, decoder and heads."""
         features = self.encoder(x)
         decoder_outputs = []
         for decoder in self.decoders:
