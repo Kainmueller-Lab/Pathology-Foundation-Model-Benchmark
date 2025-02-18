@@ -1,0 +1,64 @@
+project: patho_benchmark
+experiment: HoverNext_experiment_1
+experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
+training_steps: 30000
+log_interval: 1000
+val_interval: 1000
+multiprocessing: true
+num_workers: 4
+seed: 42
+primary_metric: f1_score_macro
+save_all_ckpts: false # watch out for memory
+
+dataset:
+  name: 'schuerch_domain_shift_mucinous'
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/domain_splits schuerch_adeno_train_val_mucinous_test.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
+  batch_size: 128
+  uniform_class_sampling: True
+  sample_excluded_classes: False
+  
+model:
+  model_wrapper: HoverNext # WATCH OUT
+  backbone: 'convnextv2_large.fcmae_ft_in22k_in1k' # REPLACE WITH 'convnextv2_large.fcmae_ft_in22k_in1k'
+  unfreeze_backbone: true
+
+optimizer:
+  name: AdamW
+  params:
+    lr: 3e-5
+    weight_decay: 0.03
+  warmup_steps: 100
+
+scheduler:
+  name: CosineAnnealingLR
+  params:
+    T_max: 200000
+    eta_min: 1e-6
+
+loss_fn: # WATCH OUT
+  name: FocalLoss
+  params:
+    reduction: mean
+    alpha: 1.0
+    gamma: 2.0
+  class_weighting: false
+
+augmentations:
+  RandomHorizontalFlip:
+    p: 0.5
+  RandomVerticalFlip:
+    p: 0.5
+  RandomAffine:
+    degrees: [0, 360]
+    translate: 0.1
+    scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
+    resample: BILINEAR
+  RandomElasticTransform:
+    kernel_size: [63, 63]
+    sigma: [32.0, 32.0]
+    alpha: [1.0, 1.0]  # Changed from alpha_affine to alpha
+  HEDNormalize:
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug
