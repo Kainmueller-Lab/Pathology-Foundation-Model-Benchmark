@@ -53,7 +53,7 @@ def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None)
         worker_init_fn=worker_init_fn,
         prefetch_factor=8 if cfg.multiprocessing else None,
         num_workers=cfg.num_workers - 1 if cfg.multiprocessing else 0,
-        sampler=train_sampler if cfg.dataset.uniform_class_sampling else None,
+        sampler=train_sampler,
         shuffle=not cfg.dataset.uniform_class_sampling,
     )
     val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
@@ -181,7 +181,7 @@ def train(cfg):  # noqa: D103
         train_sampler = get_weighted_sampler(train_dset, classes=classes)
 
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(
-        cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler
+        cfg, train_dset, val_dset, test_dset, train_sampler=train_sampler if cfg.dataset.uniform_class_sampling else None
     )
 
     loss_fn = create_loss_fn(cfg, label_dict)
