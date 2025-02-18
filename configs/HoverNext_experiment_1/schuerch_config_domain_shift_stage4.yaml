@@ -13,7 +13,7 @@ save_all_ckpts: false # watch out for memory
 dataset:
   name: 'schuerch_domain_shift_stage4'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/domain_splits schuerch_stage3_train_val_stage4_test.csv
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/domain_splits/schuerch_stage3_train_val_stage4_test.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
   batch_size: 128
   uniform_class_sampling: True
