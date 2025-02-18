@@ -3,18 +3,18 @@ import os
 from datetime import datetime
 from time import time
 
-import h5py
+import kornia
 import numpy as np
 import torch
 import wandb
 from omegaconf import OmegaConf
-import kornia
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from benchmark.augmentations import Augmenter
 from benchmark.eval import Eval
+from benchmark.hovernext import HoverNext
 from benchmark.init_dist import init_distributed
 from benchmark.simple_segmentation_model import MockModel, SimpleSegmentationModel
 from benchmark.unetr import UnetR
@@ -25,10 +25,10 @@ from benchmark.utils import (
     prep_datasets,
     save_imgs_for_debug,
 )
-from benchmark.hovernext import HoverNext
 
 os.environ["OMP_NUM_THREADS"] = "1"
 torch.backends.cudnn.benchmark = True
+MAX_EARLY_STOPPING = 5000
 
 
 def make_log_dirs(cfg):
@@ -131,7 +131,8 @@ def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
     print_ds(val_dset)
     print("Test")
     print_ds(test_dset)
-    
+
+
 def train(cfg):  # noqa: D103
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
     best_model_path = os.path.join(checkpoint_path, "best_model.pth")
@@ -152,6 +153,7 @@ def train(cfg):  # noqa: D103
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
+
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 
@@ -195,12 +197,13 @@ def train(cfg):  # noqa: D103
 
     # training pipeline
     step = 0
+    steps_since_last_best = 0
     loss_history = []
     primary_metric_history = []
     print("Start training")
     np.random.seed(cfg.seed if hasattr(cfg, "seed") else time())
     loss_tmp = []
-    while step < cfg.training_steps:
+    while step < cfg.training_steps and steps_since_last_best < cfg.early_stopping:
         model.train()  # maybe change depending on how the model_wrapper is implemented
         for sample_dict in train_dataloader:
             img = sample_dict["image"].float()
@@ -237,7 +240,7 @@ def train(cfg):  # noqa: D103
                     print(f"Step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
 
             # log at cfg.val_interval or at the end of training
-            if (step % cfg.val_interval == 0) or (step == cfg.training_steps - 1):
+            if step > 0 and (step % cfg.val_interval == 0 or step == cfg.training_steps - 1):
                 # validating
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
@@ -255,7 +258,7 @@ def train(cfg):  # noqa: D103
                     if cfg.save_all_ckpts:
                         model_path = os.path.join(checkpoint_path, f"checkpoint_step_{step}.pth")
                         torch.save(model.state_dict(), model_path)
-                    if step % (10 * cfg.val_interval) == 0:
+                    if cfg.save_snapshots and step % (10 * cfg.val_interval) == 0:
                         save_imgs_for_debug(
                             snap_dir,
                             step,
@@ -269,10 +272,14 @@ def train(cfg):  # noqa: D103
                         )
                 if hasattr(cfg, "primary_metric"):
                     primary_metric_history.append(logging_dict["validation/" + cfg.primary_metric])
+                    steps_since_last_best += cfg.val_interval
                 if hasattr(cfg, "primary_metric") and (logging or "RANK" not in os.environ):
                     if max(primary_metric_history) == logging_dict["validation/" + cfg.primary_metric]:
                         torch.save(model.state_dict(), best_model_path)
                         best_checkpoint_step = step
+                        steps_since_last_best = 0
+                        print(f"Found new BEST model at step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
+
                 model.train()
             step += 1
 
@@ -306,5 +313,10 @@ if __name__ == "__main__":
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
     print(f"Experiment name: {cfg.experiment}")
-
+    if not hasattr(cfg, "early_stopping"):
+        cfg.early_stopping = MAX_EARLY_STOPPING
+    if not hasattr(cfg, "save_snapshots"):
+        cfg.save_snapshots = False
+    if not hasattr(cfg, "save_all_ckpts"):
+        cfg.save_all_ckpts = False
     train(cfg)

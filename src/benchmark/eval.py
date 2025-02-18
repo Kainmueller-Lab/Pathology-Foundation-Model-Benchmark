@@ -1,16 +1,18 @@
 import os
 import re
+
 import numpy as np
-import torch
-from tqdm import tqdm
 import pandas as pd
+import torch
 from skimage.measure import regionprops_table
+from tqdm import tqdm
+
 from benchmark.metric_utils import (
     accuracy,
+    confusion_matrix_func,
+    f1_score_class,
     precision,
     recall,
-    f1_score_class,
-    confusion_matrix_func,
 )
 
 
@@ -69,7 +71,7 @@ class Eval:
             for sample_dict in tqdm(dataloader):
                 img = sample_dict["image"].float().to(device)
                 semantic_mask = sample_dict["semantic_mask"].numpy()
-                instance_mask = sample_dict.get("instance_mask", None)
+                instance_mask = sample_dict.get("instance_mask", None).numpy()
                 sample_name = sample_dict.get("sample_name", None)
 
                 # Run model to get predictions
@@ -84,7 +86,7 @@ class Eval:
                         pred_df = self._get_instance_level_labels(
                             pred_probs[i],
                             semantic_mask[i],
-                            instance_mask[i].numpy(),
+                            instance_mask[i],
                         )
                         pred_df["sample_name"] = sample_name[i]
                         pred_dfs.append(pred_df)
