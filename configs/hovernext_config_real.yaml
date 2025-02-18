@@ -8,7 +8,7 @@ multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
-save_all_ckpts: false # watch out for memory
+save_all_ckpts: false # watch out for storage
 early_stopping: 1500
 
 dataset: # WATCH OUT

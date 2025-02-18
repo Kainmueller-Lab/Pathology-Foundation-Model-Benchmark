@@ -83,8 +83,33 @@ class Deconv2DBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):  # noqa: D102
+    def forward(self, x):
         return self.block(x)
+
+
+def forward_musk_embed(
+    self,
+    visual_tokens=None,
+    attn_mask=None,
+    vision_masked_position=None,
+    incremental_state=None,
+    positions=None,
+):
+    x = self.vision_embed(visual_tokens, vision_masked_position)
+    encoder_padding_mask = None
+    multiway_split_position = -1
+
+    encoder_out = self.encoder(
+        src_tokens=None,
+        encoder_padding_mask=encoder_padding_mask,
+        attn_mask=attn_mask,
+        token_embeddings=x,
+        multiway_split_position=multiway_split_position,
+        incremental_state=incremental_state,
+        positions=positions,
+        return_all_hiddens=True,
+    )
+    return encoder_out
 
 
 class UnetR(nn.Module):
@@ -178,19 +203,25 @@ class UnetR(nn.Module):
         -------
             logits: Output logits of shape (b, num_classes, h, w)
         """
+        # Transform
         if self.model_name == "phikonv2":
             x = self.transform(x, return_tensors="pt")["pixel_values"]
             x = x.cuda()
         else:
             x = self.transform(x)
-        patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
+
+        if self.model_name == "musk":
+            outputs = forward_musk_embed(self.model.beit3, visual_tokens=x)
+            patch_embeddings = outputs["encoder_states"][-4:]
+        else:
+            patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
 
         if self.model_name == "phikonv2":
-            patch_embeddings = patch_embeddings["hidden_states"]
+            patch_embeddings = patch_embeddings["hidden_states"][-4:]
 
-        if self.model_name in ["phikonv2", "titan"]:
+        if self.model_name in ["phikonv2", "titan", "musk"]:
             reshaped_embed = []
-            for layer in patch_embeddings[:4]:
+            for layer in patch_embeddings:
                 reshaped_embed.append(
                     einops.rearrange(
                         layer[:, 1:, :],

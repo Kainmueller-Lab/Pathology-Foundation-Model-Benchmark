@@ -8,7 +8,8 @@ multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
-save_all_ckpts: false # watch out for memory
+save_all_ckpts: false # watch out for storage
+early_stopping: 1200
 
 dataset:
   name: 'schuerch'
@@ -21,7 +22,7 @@ dataset:
   
 model:
   model_wrapper: UnetR
-  backbone: provgigapath #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
+  backbone: musk #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
   unfreeze_backbone: false
 
 optimizer:
