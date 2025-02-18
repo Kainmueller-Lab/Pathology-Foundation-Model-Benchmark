@@ -305,7 +305,7 @@ def load_model_and_transform(
                 x.to(x.device, dtype=torch.float32),  # Use x.device instead of "cuda"
                 with_head=False,
                 out_norm=False,
-                ms_aug=True,
+                ms_aug=False,
                 return_global=False,
             )[0][:, 1:, :]
             .reshape(

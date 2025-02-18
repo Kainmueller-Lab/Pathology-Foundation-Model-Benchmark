@@ -22,6 +22,7 @@ from benchmark.utils import (
     EMAInverseClassFrequencyLoss,
     ExcludeClassLossWrapper,
     get_weighted_sampler,
+    maybe_resize,
     prep_datasets,
     save_imgs_for_debug,
 )
@@ -113,7 +114,7 @@ def save_config(cfg):
         OmegaConf.save(config=cfg, f=f)
 
 
-def worker_init_fn(worker_id):  # noqa: D103
+def worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
@@ -133,7 +134,7 @@ def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
     print_ds(test_dset)
 
 
-def train(cfg):  # noqa: D103
+def train(cfg):
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
     best_model_path = os.path.join(checkpoint_path, "best_model.pth")
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
@@ -217,6 +218,8 @@ def train(cfg):  # noqa: D103
             instance_mask_aug = instance_mask_aug.squeeze(1)  # Remove the extra dimension
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 pred_mask = model(img_aug)
+                pred_mask = maybe_resize(pred_mask, semantic_mask_aug)
+
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()

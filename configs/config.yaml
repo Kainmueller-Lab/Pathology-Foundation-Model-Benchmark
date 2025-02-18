@@ -15,12 +15,12 @@ dataset:
   path: tests/test_data/small_lizard_lmdb
   split: tests/test_data/small_lizard_train_test_val_split.csv
   label_dict: tests/test_data/label_dict.json
-  batch_size: 8
+  batch_size: 2
   uniform_class_sampling: True
   sample_excluded_classes: False
   
 model:
-  model_wrapper: SimpleSegmentationModel
+  model_wrapper: UnetR
   backbone: MOCK
   unfreeze_backbone: false
 

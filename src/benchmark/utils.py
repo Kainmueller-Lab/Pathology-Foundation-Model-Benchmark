@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from benchmark.lmdb_dataset import LMDBDataset
 
@@ -53,6 +54,10 @@ def to_tuple(dim: Union[int, tuple[int, ...]]) -> tuple[int, ...]:
     else:
         raise ValueError("Dimension must be an integer or a tuple of two integers.")
 
+def maybe_resize(x, y):
+    if x.shape != y.shape:
+        return F.interpolate(x, size=y.shape[-2:], mode="bilinear", align_corners=True)
+    return x
 
 def prep_datasets(cfg):
     """Prepare the training and validation datasets.

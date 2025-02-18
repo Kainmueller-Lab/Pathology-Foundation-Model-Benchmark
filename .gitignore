@@ -169,3 +169,4 @@ configs/config_unetr_schuerch.yaml
 .vscode/launch.json
 launch_train_slurm.sh
 configs/config_unetr_schuerch.yaml
+configs/config.yaml
