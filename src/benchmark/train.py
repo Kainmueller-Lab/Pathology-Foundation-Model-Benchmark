@@ -253,7 +253,6 @@ def train(cfg):
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
-                loss_tmp = []
                 if logging:
                     wandb.log(logging_dict, step=step)
                     wandb.log(classwise_dict, step=step)
@@ -283,6 +282,7 @@ def train(cfg):
                         steps_since_last_best = 0
                         print(f"Found new BEST model at step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
 
+                loss_tmp = []
                 model.train()
             step += 1
 

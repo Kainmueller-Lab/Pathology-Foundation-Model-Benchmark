@@ -28,7 +28,7 @@ model:
 optimizer:
   name: AdamW
   params:
-    lr: 1e-5
+    lr: 3e-5
     weight_decay: 0.03
   warmup_steps: 1000
 

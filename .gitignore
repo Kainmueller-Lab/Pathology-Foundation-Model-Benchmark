@@ -170,3 +170,7 @@ configs/config_unetr_schuerch.yaml
 launch_train_slurm.sh
 configs/config_unetr_schuerch.yaml
 configs/config.yaml
+configs/config_unetr_arctique.yaml
+configs/config_unetr_lizard.yaml
+configs/config_unetr_pannuke.yaml
+configs/config_unetr_schuerch.yaml

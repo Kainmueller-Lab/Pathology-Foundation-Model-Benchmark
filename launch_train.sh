@@ -23,6 +23,7 @@ echo "================ Starting Job ============"
 echo "Config file: $1"
 echo "Model name: $2"
 
+nvidia-smi
 export HF_HOME=/fast/AG_Kainmueller/fabian/miniforge/hf_cache
 N_CPUS=8
 OMP_NUM_THREADS=$N_CPUS PYTHONPATH=/fast/AG_Kainmueller/jluesch/channel_dinov2 python src/benchmark/train.py --config $1 --job_id ${JOB_ID} --model_name $2
