@@ -17,6 +17,8 @@ def test_train():
         cfg.experiment_path = tmp_dir
         cfg.model.backbone = "MOCK"
         cfg.early_stopping = 20
+        cfg.save_snapshots = False
+        cfg.save_all_ckpts = False
         loss_history = train(cfg)
         log_dir = os.path.join(cfg.experiment_path, cfg.experiment)
         # check if files and folders got created
