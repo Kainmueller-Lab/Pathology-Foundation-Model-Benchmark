@@ -1,5 +1,5 @@
 project: patho_benchmark
-experiment: HoverNext_experiment_1
+experiment: HoverNext_experiment_2_bs_64
 experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
 training_steps: 30000
 log_interval: 1000
@@ -15,7 +15,7 @@ dataset:
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/arctique_lmdb/
   split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/train_test_val_split.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/label_dict.json
-  batch_size: 128
+  batch_size: 64
   uniform_class_sampling: True
   sample_excluded_classes: False
   
