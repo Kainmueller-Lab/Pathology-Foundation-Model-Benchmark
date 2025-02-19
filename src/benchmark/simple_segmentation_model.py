@@ -1,9 +1,11 @@
+import math
 import os
 from pathlib import Path
 from typing import Sequence, Union
 
 import timm
 import torch
+import numpy as np
 from dotenv import load_dotenv
 from huggingface_hub import login
 from musk import modeling, utils  # modeling is needed to register musk with timm
@@ -20,6 +22,8 @@ from timm.data.transforms_factory import create_transform
 from timm.layers import SwiGLUPacked
 from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
+import torch.nn.functional as F
+from einops import rearrange
 
 # load the environment variables
 dotenv_path = Path(__file__).parents[2] / ".env"
@@ -32,7 +36,7 @@ train_cfg = OmegaConf.load("configs/config.yaml")
 class SimpleSegmentationModel(torch.nn.Module):
     """Simple segmentation model that uses a backbone and a linear head."""
 
-    def __init__(self, model_name, num_classes):
+    def __init__(self, model_name, num_classes, do_ms_aug=False):
         """
         Initialize the SimpleSegmentationModel with the specified model and number of classes.
 
@@ -43,10 +47,11 @@ class SimpleSegmentationModel(torch.nn.Module):
         """
         super().__init__()
         self.model_name = clean_str(model_name)
-        self.model, self.transform, model_dim, _, _ = load_model_and_transform(model_name)
+        self.model, self.transform, model_dim, _, _ = load_model_and_transform(model_name, do_ms_aug=do_ms_aug)
         # In channels here sometimes are a list which results in a crash
         in_channels = model_dim[-1] if isinstance(model_dim, (list, tuple, ListConfig)) else model_dim
         self.head = torch.nn.Conv2d(in_channels=in_channels, out_channels=num_classes, kernel_size=1)
+
         self.model.eval()
         self.freeze_model()
 
@@ -78,8 +83,18 @@ class SimpleSegmentationModel(torch.nn.Module):
         patch_embeddings = self.model.forward_patches(
             x
         )  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
-        logits = self.head(patch_embeddings)
-        logits = torch.nn.functional.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False)
+        # can be a tuple is multiscale
+        if isinstance(patch_embeddings, tuple):
+            all_logits = []
+            for embedding in patch_embeddings:
+                logits = self.head(embedding)
+                logits = torch.nn.functional.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False)
+                all_logits.append(logits)
+            logits = torch.stack(all_logits, dim=0).mean(dim=0)
+        else:
+            logits = self.head(patch_embeddings)
+            logits = torch.nn.functional.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False)
+
         return logits
 
 
@@ -110,13 +125,14 @@ class MockModel(torch.nn.Module):
 
 
 def load_model_and_transform(
-    model_name: str, features_only: bool = False
+    model_name: str, features_only: bool = False, do_ms_aug: bool = True
 ) -> tuple[torch.nn.Module, torch.nn.Module, int | list[int]]:
     """Load model and transform to prepare data.
 
     Args:
         model_name: The name of the model to load.
         features_only: Whether to load the model with features only.
+        do_ms_aug: Whether to apply multiscale augmentation (musk only).
 
     Returns
     -------
@@ -298,24 +314,31 @@ def load_model_and_transform(
                 transforms.Normalize(mean=IMAGENET_INCEPTION_MEAN, std=IMAGENET_INCEPTION_STD),
             ]
         )
-        # TODO: fwd with ms aug
-        # model.forward_patches = lambda x: model.model.beit3(visual_tokens=x.to(x.device, dtype=torch.float32))
-        model.forward_patches = (
-            lambda x: model(
-                x.to(x.device, dtype=torch.float32),  # Use x.device instead of "cuda"
-                with_head=False,
+        if do_ms_aug:
+            model.forward_patches = lambda x: musk_ms_aug_fwd(
+                model,
+                image=x.to(x.device, dtype=torch.float32),
                 out_norm=False,
-                ms_aug=False,
-                return_global=False,
-            )[0][:, 1:, :]
-            .reshape(
-                x.shape[0],
-                int(model_cfg.img_size / model_cfg.patch_size),
-                int(model_cfg.img_size / model_cfg.patch_size),
-                -1,
+                ms_aug=True,
+                scales=[1, 2],
             )
-            .permute(0, 3, 1, 2)
-        )
+        else:
+            model.forward_patches = (
+                lambda x: model(
+                    x.to(x.device, dtype=torch.float32),  # Use x.device instead of "cuda"
+                    with_head=False,
+                    out_norm=False,
+                    ms_aug=False,
+                    return_global=False,
+                )[0][:, 1:, :]
+                .reshape(
+                    x.shape[0],
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    -1,
+                )
+                .permute(0, 3, 1, 2)
+            )
 
     elif model_name == "mock":
         patch_size, img_size = 14, 224
@@ -338,6 +361,106 @@ def load_model_and_transform(
             model_dim = get_model_dim(model, img_size=model_cfg.img_size, features_only=features_only)
 
     return model, transform, model_dim, patch_size, img_size
+
+
+def musk_batched_forward(model, x, batch_size=-1):
+    """Batched forward pass of the model.
+
+    Args:
+        model: The model to run the forward pass on.
+        x: Input tensor of shape (b nc) c h w.
+        batch_size: The batch size to use for the forward pass.
+
+    Returns:
+        The output of the model.
+    """
+    if batch_size == -1:
+        batch_size = x.shape[0]
+
+    x_batched = x.split(batch_size)
+    outs = []
+    for x in x_batched:
+        # x: (b, c, h, w), is one crop
+        ret = musk_ms_aug_fwd(model, image=x, out_norm=False, ms_aug=False)
+        # ret: b n d
+        outs.append(ret)
+    return torch.stack(outs, dim=0)  # b nc n d
+
+
+def musk_MultiScaleForward(
+    model,
+    input,
+    scales=[1, 2],
+    max_split_size=None,
+):
+    assert input.dim() == 4, "Input image must be in the shape of BxCxHxW."
+    assert input.shape[2] == input.shape[3], "Currently only square images are supported."
+
+    b, c, input_size, _ = input.shape
+
+    # image size for each scale
+    img_sizes = [int(input_size * scale) for scale in scales]
+
+    # prepare multiscale inputs
+    max_split_size = (
+        max_split_size or input_size
+    )  # The maximum size of each split of image. Set as the input size by default
+    num_splits = [math.ceil(size / max_split_size) for size in img_sizes]  # number of splits each scale
+    input_multiscale = []
+    for size, num_split in zip(img_sizes, num_splits):
+        x = F.interpolate(input.to(torch.float32), size=size, mode="bicubic").to(input.dtype)
+        x = utils.split_chessboard(x, num_split=num_split)
+        input_multiscale.append(x)
+
+    # run feedforward on each scale
+    outs_multiscale = [musk_batched_forward(model, x, b) for x in input_multiscale]
+    # outs multiscale shape (nc b n d) where b=batch_size, s=scale, n=num patches
+
+    scale_one = outs_multiscale[0][0, :, 1:, :]
+    scale_one = rearrange(
+        scale_one,
+        "b (p1 p2) d -> b p1 p2 d",
+        b=scale_one.shape[0],
+        d=scale_one.shape[2],
+        p1=int(np.sqrt(scale_one.shape[1])),
+        p2=int(np.sqrt(scale_one.shape[1])),
+    ).permute(0, 3, 1, 2)
+    upscale = outs_multiscale[1]
+    upscale = rearrange(
+        upscale[:, :, 1:, :],
+        "nc b (p1 p2) d -> b nc p1 p2 d",
+        b=upscale.shape[1],
+        d=upscale.shape[3],
+        p1=int(np.sqrt(upscale.shape[2])),
+        p2=int(np.sqrt(upscale.shape[2])),
+    )
+    upscale_upper = torch.cat((upscale[:, 0, :, :], upscale[:, 1, :, :]), dim=1)
+    upscale_lower = torch.cat((upscale[:, 2, :, :], upscale[:, 3, :, :]), dim=1)
+    upscale = torch.cat((upscale_upper, upscale_lower), dim=2).permute(0, 3, 1, 2)
+
+    return scale_one, upscale
+
+
+def musk_ms_aug_fwd(
+    self,
+    image,
+    out_norm=False,
+    ms_aug=False,
+    scales=None,
+):
+    if scales is None:
+        scales = [1, 2]  # Default scales
+
+    # Process image input
+    if ms_aug:
+        vision_embeds = musk_MultiScaleForward(model=self, input=image, scales=scales, max_split_size=None)
+    else:
+        outputs = self.beit3(visual_tokens=image)
+        vision_embeds = outputs["encoder_out"]
+    if out_norm:
+        vision_embeds = F.normalize(vision_embeds, dim=-1)
+
+    return vision_embeds
 
 
 def titan_intermediate_layers(

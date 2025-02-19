@@ -149,7 +149,9 @@ class UnetR(nn.Module):
         model_name,
         num_classes,
         drop_rate: float = 0,
+        do_ms_aug: bool = False,
     ):
+        # do_ms_aug mot implemented for UnetR
         # For simplicity, we will assume that extract layers must have a length of 4
         super().__init__()
         self.model, self.transform, model_dim, self.patch_size, self.image_size = load_model_and_transform(
