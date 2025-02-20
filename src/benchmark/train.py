@@ -140,7 +140,11 @@ def train(cfg):
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     print_ds_stats(train_dset, val_dset, test_dset, label_dict)
     model_wrapper = eval(cfg.model.model_wrapper)
-    model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict), do_ms_aug=cfg.model.do_ms_aug)
+    model = model_wrapper(
+        model_name=cfg.model.backbone,
+        num_classes=len(label_dict),
+        do_ms_aug=getattr(cfg.model, "do_ms_aug", False)  # Default to False if not specified
+    )
     if cfg.model.unfreeze_backbone:
         model.unfreeze_model()
 
