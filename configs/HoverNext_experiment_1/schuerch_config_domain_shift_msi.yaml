@@ -11,7 +11,7 @@ primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
 
 dataset:
-  name: 'schuerch_domain_shift_stage4'
+  name: 'schuerch_domain_shift_msi'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
   split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/domain_splits/schuerch_mss_train_val_msi_test.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
