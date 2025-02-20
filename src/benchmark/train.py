@@ -328,4 +328,15 @@ if __name__ == "__main__":
         cfg.save_all_ckpts = False
     if not hasattr(cfg.model, "do_ms_aug"):
         cfg.model.do_ms_aug = False
+    
+    # Dynamically adjust batch size if using UnetR models
+    if cfg.model.model_wrapper == 'UnetR':
+        # Define batch sizes for different models
+        if cfg.model.backbone in ['virchow2', 'provgigapath', 'uni2']:
+            cfg.dataset.batch_size = 64
+        elif cfg.model.backbone in ['phikonv2', 'uni', 'titan']:
+            cfg.dataset.batch_size = 128
+        elif cfg.model.backbone == 'musk':
+            cfg.dataset.batch_size = 32
+        print(f"Adjusted batch size to {cfg.dataset.batch_size} for {cfg.model.backbone}")
     train(cfg)
