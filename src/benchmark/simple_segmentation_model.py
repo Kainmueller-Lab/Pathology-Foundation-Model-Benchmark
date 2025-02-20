@@ -348,8 +348,11 @@ def load_model_and_transform(
         model.forward_patches = lambda x: model(x)
         if features_only:
             model_dim = [1024, 1024, 1024, 1024]
+            # Create mock feature maps on the same device as input tensor
+            # to maintain device consistency throughout the forward pass
             model.forward = lambda x: [
-                torch.zeros(x.shape[0], dim, img_size // patch_size, img_size // patch_size) for dim in model_dim
+                torch.zeros(x.shape[0], dim, img_size // patch_size, img_size // patch_size, 
+                        device=x.device) for dim in model_dim
             ]
     else:
         raise ValueError(f"Unsupported model name: {model_name}")
