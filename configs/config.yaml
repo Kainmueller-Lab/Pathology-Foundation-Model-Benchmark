@@ -46,15 +46,16 @@ loss_fn:
 
   exclude_classes: [0]
 
-  augmentations:
-    RandomHorizontalFlip:
-      p: 0.5
-    RandomVerticalFlip:
-      p: 0.5
-    RandomRotation:
-      - degrees: [0, 360]
-        p: 0.5
-        resample: NEAREST
-    HEDNormalize:
-      - sigma: 0.05
-        bias: 0.1
+augmentations:
+  RandomHorizontalFlip:
+    p: 0.5
+  RandomVerticalFlip:
+    p: 0.5
+  RandomAffine:
+    degrees: [0, 360]
+    translate: 0.1
+    scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
+    resample: BILINEAR
+  HEDNormalize:
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug
