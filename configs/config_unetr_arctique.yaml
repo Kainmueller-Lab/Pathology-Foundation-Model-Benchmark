@@ -9,10 +9,11 @@ num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
+early_stopping: 1200
 
 dataset:
   name: 'arctique'
-  batch_size: 128
+  batch_size: 64
   uniform_class_sampling: True
   sample_excluded_classes: False
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/arctique_lmdb/

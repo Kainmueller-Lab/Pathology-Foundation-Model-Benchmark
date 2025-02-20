@@ -15,12 +15,12 @@ dataset:
   path: tests/test_data/small_lizard_lmdb
   split: tests/test_data/small_lizard_train_test_val_split.csv
   label_dict: tests/test_data/label_dict.json
-  batch_size: 8
+  batch_size: 2
   uniform_class_sampling: True
   sample_excluded_classes: False
   
 model:
-  model_wrapper: SimpleSegmentationModel
+  model_wrapper: UnetR
   backbone: MOCK
   unfreeze_backbone: false
 
@@ -46,15 +46,16 @@ loss_fn:
 
   exclude_classes: [0]
 
-  augmentations:
-    RandomHorizontalFlip:
-      p: 0.5
-    RandomVerticalFlip:
-      p: 0.5
-    RandomRotation:
-      - degrees: [0, 360]
-        p: 0.5
-        resample: NEAREST
-    HEDNormalize:
-      - sigma: 0.05
-        bias: 0.1
+augmentations:
+  RandomHorizontalFlip:
+    p: 0.5
+  RandomVerticalFlip:
+    p: 0.5
+  RandomAffine:
+    degrees: [0, 360]
+    translate: 0.1
+    scale: [0.8, 1.2]  # Changed 0.2 to [min_scale, max_scale]
+    resample: BILINEAR
+  HEDNormalize:
+    sigma: 0.025 # halved color aug
+    bias: 0.05 # halved color aug
