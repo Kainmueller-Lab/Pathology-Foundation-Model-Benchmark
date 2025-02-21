@@ -22,6 +22,7 @@ from benchmark.utils import (
     EMAInverseClassFrequencyLoss,
     ExcludeClassLossWrapper,
     get_weighted_sampler,
+    maybe_resize,
     prep_datasets,
     save_imgs_for_debug,
 )
@@ -113,7 +114,7 @@ def save_config(cfg):
         OmegaConf.save(config=cfg, f=f)
 
 
-def worker_init_fn(worker_id):  # noqa: D103
+def worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 
@@ -133,13 +134,17 @@ def print_ds_stats(train_dset, val_dset, test_dset, label_dict):
     print_ds(test_dset)
 
 
-def train(cfg):  # noqa: D103
+def train(cfg):
     log_dir, checkpoint_path, snap_dir = make_log_dirs(cfg)
     best_model_path = os.path.join(checkpoint_path, "best_model.pth")
     train_dset, val_dset, test_dset, label_dict = prep_datasets(cfg)
     print_ds_stats(train_dset, val_dset, test_dset, label_dict)
     model_wrapper = eval(cfg.model.model_wrapper)
-    model = model_wrapper(model_name=cfg.model.backbone, num_classes=len(label_dict))
+    model = model_wrapper(
+        model_name=cfg.model.backbone,
+        num_classes=len(label_dict),
+        do_ms_aug=getattr(cfg.model, "do_ms_aug", False)  # Default to False if not specified
+    )
     if cfg.model.unfreeze_backbone:
         model.unfreeze_model()
 
@@ -217,6 +222,8 @@ def train(cfg):  # noqa: D103
             instance_mask_aug = instance_mask_aug.squeeze(1)  # Remove the extra dimension
             with torch.autocast(device_type=device.type, dtype=torch.float16):
                 pred_mask = model(img_aug)
+                pred_mask = maybe_resize(pred_mask, semantic_mask_aug)
+
                 loss = loss_fn(pred_mask, semantic_mask_aug.long())
             if not torch.isnan(loss):
                 scaler.scale(loss).backward()
@@ -250,7 +257,6 @@ def train(cfg):  # noqa: D103
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
                 logging_dict["lr"] = optimizer.param_groups[0]["lr"]
                 loss_history.append(logging_dict["train_loss"])
-                loss_tmp = []
                 if logging:
                     wandb.log(logging_dict, step=step)
                     wandb.log(classwise_dict, step=step)
@@ -280,6 +286,7 @@ def train(cfg):  # noqa: D103
                         steps_since_last_best = 0
                         print(f"Found new BEST model at step {step}, loss {np.mean(loss_tmp) / float(WORLD_SIZE)}")
 
+                loss_tmp = []
                 model.train()
             step += 1
 
@@ -319,4 +326,6 @@ if __name__ == "__main__":
         cfg.save_snapshots = False
     if not hasattr(cfg, "save_all_ckpts"):
         cfg.save_all_ckpts = False
+    if not hasattr(cfg.model, "do_ms_aug"):
+        cfg.model.do_ms_aug = False
     train(cfg)

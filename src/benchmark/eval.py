@@ -14,6 +14,7 @@ from benchmark.metric_utils import (
     precision,
     recall,
 )
+from benchmark.utils import maybe_resize
 
 
 def extract_numbers_from_string(s):
@@ -76,6 +77,7 @@ class Eval:
 
                 # Run model to get predictions
                 pred_logits = model(img)
+                pred_logits = maybe_resize(pred_logits, semantic_mask)
                 # Assuming pred_logits is (batch_size, num_classes, H, W)
                 pred_probs = torch.softmax(pred_logits, dim=1).cpu().numpy()
 

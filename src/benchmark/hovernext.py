@@ -23,7 +23,8 @@ class HoverMockModel(nn.Module):
 
 
 class HoverNext(nn.Module):
-    def __init__(self, model_name="convnextv2_large.fcmae_ft_in22k_in1k", num_classes=8):
+    def __init__(self, model_name="convnextv2_large.fcmae_ft_in22k_in1k", num_classes=8,
+                 do_ms_aug=False): # multi-scale augmentation not yet implemented.
         super().__init__()
         if clean_str(model_name) == "mock":
             self.model = HoverMockModel(num_classes)
