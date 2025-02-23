@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from benchmark.augmentations import Augmenter
+from benchmark.dpt import DPT
 from benchmark.eval import Eval
 from benchmark.hovernext import HoverNext
 from benchmark.init_dist import init_distributed
