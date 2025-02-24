@@ -27,7 +27,7 @@ class DPTSegmentationHead(torch.nn.Module):
                 nn.ReLU(True),
                 nn.Dropout(0.1, False),
                 nn.Conv2d(num_features, num_classes, kernel_size=1),
-                Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
+                #Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
             )
 
         self.channels_last = channels_last
