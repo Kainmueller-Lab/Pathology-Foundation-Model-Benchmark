@@ -47,7 +47,7 @@ def make_log_dirs(cfg):
     return log_dir, checkpoint_path, snap_dir
 
 
-def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):  # noqa: D103
+def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):
     train_dataloader = DataLoader(
         train_dset,
         batch_size=cfg.dataset.batch_size,

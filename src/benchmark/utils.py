@@ -80,7 +80,14 @@ def prep_datasets(cfg):
     datasets = []
     for split in ["train", "valid", "test"]:
         include_fovs = split_df[split_df["train_test_val_split"] == split]["sample_name"].tolist()
-        dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_fovs)
+        if 'tile' in include_fovs[0].lower():
+            include_tile_names=include_fovs
+            include_sample_names=None
+        else:
+            include_tile_names=None
+            include_sample_names=include_fovs
+
+        dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_sample_names, include_tile_names=include_tile_names)
         datasets.append(dataset)
     datasets.append(label_dict)
     return tuple(datasets)
