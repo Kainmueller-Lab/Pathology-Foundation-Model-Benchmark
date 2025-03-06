@@ -1,6 +1,6 @@
 import numpy as np
 
-from benchmark.utils import get_height_width, to_tuple
+from benchmark.utils.utils import get_height_width, to_tuple
 
 
 def center_pad_to_size(array, desired_shape):

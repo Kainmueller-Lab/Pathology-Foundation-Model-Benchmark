@@ -1,6 +1,7 @@
 import os
-import torch.distributed as dist
+
 import torch
+import torch.distributed as dist
 
 
 def init_distributed():
@@ -24,12 +25,14 @@ def init_distributed():
 
 
 def all_gather(t_local, WORLD_SIZE):
-    """
-    Gather tensors from all process, and return the concatenated results
+    """Gather tensors from all process, and return the concatenated results.
+
     Args:
         t_local (torch.Tensor): tensor to be gathered, assumes the same size across all processes
         WORLD_SIZE (int): number of processes
-    Returns:
+
+    Returns
+    -------
         output_tensor (torch.Tensor): gathered tensor
     """
     output_tensor = [torch.zeros_like(t_local) for _ in range(WORLD_SIZE)]

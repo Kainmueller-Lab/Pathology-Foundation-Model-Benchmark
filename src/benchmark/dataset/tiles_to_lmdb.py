@@ -4,7 +4,6 @@ import pickle
 
 import fastremap
 import lmdb
-import numpy as np
 from bio_image_datasets.arctique_dataset import ArctiqueDataset
 from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.lizard_dataset import LizardDataset
@@ -13,7 +12,7 @@ from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
 from tqdm import tqdm
 
-from benchmark.split_to_tiles import transform_to_tiles
+from benchmark.dataset.split_to_tiles import transform_to_tiles
 
 
 def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
@@ -128,4 +127,9 @@ if __name__ == "__main__":
     dataset = dataset_class(local_path=args.local_path)
 
     # Create LMDB database
-    create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
+    create_lmdb_database(
+        dataset,
+        lmdb_path=args.output_path,
+        tile_size=args.tile_size,
+        map_size=args.map_size,
+    )

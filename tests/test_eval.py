@@ -1,9 +1,10 @@
 import os
 import tempfile
+
 import numpy as np
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Dataset
+
 from benchmark.eval import Eval, extract_numbers_from_string
 
 

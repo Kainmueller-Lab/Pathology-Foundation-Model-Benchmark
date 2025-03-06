@@ -4,15 +4,14 @@ import torch.nn as nn
 
 def _make_resnet_backbone(resnet):
     pretrained = nn.Module()
-    pretrained.layer1 = nn.Sequential(
-        resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool, resnet.layer1
-    )
+    pretrained.layer1 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool, resnet.layer1)
 
     pretrained.layer2 = resnet.layer2
     pretrained.layer3 = resnet.layer3
     pretrained.layer4 = resnet.layer4
 
     return pretrained
+
 
 def _make_fusion_block(num_features, use_bn):
     return FeatureFusionBlock_custom(
@@ -23,6 +22,7 @@ def _make_fusion_block(num_features, use_bn):
         expand=False,
         align_corners=True,
     )
+
 
 def _make_pretrained_resnext101_wsl(use_pretrained):
     resnet = torch.hub.load("facebookresearch/WSL-Images", "resnext101_32x8d_wsl")
@@ -52,7 +52,8 @@ class Interpolate(nn.Module):
         Args:
             x (tensor): input
 
-        Returns:
+        Returns
+        -------
             tensor: interpolated data
         """
         x = self.interp(
@@ -76,13 +77,9 @@ class ResidualConvUnit(nn.Module):
         """
         super().__init__()
 
-        self.conv1 = nn.Conv2d(
-            features, features, kernel_size=3, stride=1, padding=1, bias=True
-        )
+        self.conv1 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True)
 
-        self.conv2 = nn.Conv2d(
-            features, features, kernel_size=3, stride=1, padding=1, bias=True
-        )
+        self.conv2 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True)
 
         self.relu = nn.ReLU(inplace=True)
 
@@ -92,7 +89,8 @@ class ResidualConvUnit(nn.Module):
         Args:
             x (tensor): input
 
-        Returns:
+        Returns
+        -------
             tensor: output
         """
         out = self.relu(x)
@@ -120,7 +118,8 @@ class FeatureFusionBlock(nn.Module):
     def forward(self, *xs):
         """Forward pass.
 
-        Returns:
+        Returns
+        -------
             tensor: output
         """
         output = xs[0]
@@ -130,9 +129,7 @@ class FeatureFusionBlock(nn.Module):
 
         output = self.resConfUnit2(output)
 
-        output = nn.functional.interpolate(
-            output, scale_factor=2, mode="bilinear", align_corners=True
-        )
+        output = nn.functional.interpolate(output, scale_factor=2, mode="bilinear", align_corners=True)
 
         return output
 
@@ -186,7 +183,8 @@ class ResidualConvUnit_custom(nn.Module):
         Args:
             x (tensor): input
 
-        Returns:
+        Returns
+        -------
             tensor: output
         """
         out = self.activation(x)
@@ -254,7 +252,8 @@ class FeatureFusionBlock_custom(nn.Module):
     def forward(self, *xs):
         """Forward pass.
 
-        Returns:
+        Returns
+        -------
             tensor: output
         """
         output = xs[0]
@@ -263,15 +262,16 @@ class FeatureFusionBlock_custom(nn.Module):
             res = self.resConfUnit1(xs[1])
             if res.shape != output.shape:
                 res = nn.functional.interpolate(
-                    res, size=output.shape[2:], mode="bilinear", align_corners=self.align_corners
+                    res,
+                    size=output.shape[2:],
+                    mode="bilinear",
+                    align_corners=self.align_corners,
                 )
             output = self.skip_add.add(output, res)
 
         output = self.resConfUnit2(output)
 
-        output = nn.functional.interpolate(
-            output, scale_factor=2, mode="bilinear", align_corners=self.align_corners
-        )
+        output = nn.functional.interpolate(output, scale_factor=2, mode="bilinear", align_corners=self.align_corners)
 
         output = self.out_conv(output)
 

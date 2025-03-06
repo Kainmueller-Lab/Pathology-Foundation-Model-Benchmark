@@ -1,7 +1,6 @@
-from benchmark.unetr import UnetR
-import numpy as np
-from omegaconf import OmegaConf
 import torch
+
+from benchmark.heads.unetr import UnetR
 
 
 def test_unetr():

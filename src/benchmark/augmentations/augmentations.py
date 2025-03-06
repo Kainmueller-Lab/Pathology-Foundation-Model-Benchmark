@@ -1,18 +1,23 @@
-import kornia.augmentation as Kaug
-from benchmark import custom_augmentations as Caug
-from omegaconf import DictConfig, ListConfig, OmegaConf
 import warnings
+
+import kornia.augmentation as Kaug
 import torch
+from omegaconf import OmegaConf
+
+from benchmark.augmentations import custom_augmentations as Caug
 
 warnings.simplefilter("once", UserWarning)  # Set this at the script start
 
 
 def get_augmentation(name, **kwargs):
     """Get the augmentation class from the Kornia or custom augmentations.
+
     Args:
         name (str): Name of the augmentation class.
         kwargs (dict): Keyword arguments for the augmentation class.
-    Returns:
+
+    Returns
+    -------
         Kornia or custom augmentation class.
     """
     if hasattr(Caug, name):

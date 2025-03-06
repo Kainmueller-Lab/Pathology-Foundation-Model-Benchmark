@@ -1,20 +1,26 @@
-
 import einops
 import torch
 import torch.nn as nn
 
-from benchmark.simple_segmentation_model import clean_str, load_model_and_transform
-from benchmark.unetr import forward_musk_embed
-
-from .blocks import Interpolate, _make_fusion_block
+from benchmark.heads.unetr import forward_musk_embed
+from benchmark.models.blocks import Interpolate, _make_fusion_block
+from benchmark.models.simple_segmentation_model import (
+    clean_str,
+    load_model_and_transform,
+)
 
 
 class DPTSegmentationHead(torch.nn.Module):
-    def __init__(self, num_classes,
-                 num_features,
-                 out_shape=None, in_shape=None,
-                 groups=1, use_bn=False,
-                 channels_last=False):
+    def __init__(
+        self,
+        num_classes,
+        num_features,
+        out_shape=None,
+        in_shape=None,
+        groups=1,
+        use_bn=False,
+        channels_last=False,
+    ):
         super().__init__()
         if out_shape is None:
             out_shape = [1024, 1024, 1024, 1024]
@@ -22,13 +28,13 @@ class DPTSegmentationHead(torch.nn.Module):
             in_shape = [1024, 1024, 1024, 1024]
 
         self.output_conv = nn.Sequential(
-                nn.Conv2d(num_features, num_features, kernel_size=3, padding=1, bias=False),
-                nn.BatchNorm2d(num_features),
-                nn.ReLU(True),
-                nn.Dropout(0.1, False),
-                nn.Conv2d(num_features, num_classes, kernel_size=1),
-                #Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
-            )
+            nn.Conv2d(num_features, num_features, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(num_features),
+            nn.ReLU(True),
+            nn.Dropout(0.1, False),
+            nn.Conv2d(num_features, num_classes, kernel_size=1),
+            # Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
+        )
 
         self.channels_last = channels_last
 
@@ -96,32 +102,27 @@ class DPT(nn.Module):
         nn (_type_): _description_
     """
 
-    def __init__(
-            self,
-            model_name,
-            num_classes,
-            **kwargs
-        ):
-            # For simplicity, we will assume that extract layers must have a length of 4
-            super().__init__()
-            self.model, self.transform, model_dim, self.patch_size, self.image_size = load_model_and_transform(
-                model_name, features_only=True
-            )
-            self.model_name = clean_str(model_name)
-            if not isinstance(model_dim, int):
-                self.embed_dim = model_dim[-1]
-            else:
-                self.embed_dim = model_dim
+    def __init__(self, model_name, num_classes, **kwargs):
+        # For simplicity, we will assume that extract layers must have a length of 4
+        super().__init__()
+        self.model, self.transform, model_dim, self.patch_size, self.image_size = load_model_and_transform(
+            model_name, features_only=True
+        )
+        self.model_name = clean_str(model_name)
+        if not isinstance(model_dim, int):
+            self.embed_dim = model_dim[-1]
+        else:
+            self.embed_dim = model_dim
 
-            self.head = DPTSegmentationHead(
-                num_classes=num_classes,
-                num_features=self.embed_dim,
-                in_shape=[1024, 1024, 1024, 1024],
-                out_shape=[1024, 1024, 1024, 1024],
-                groups=1,
-                use_bn=True,
-                channels_last=True,
-            )
+        self.head = DPTSegmentationHead(
+            num_classes=num_classes,
+            num_features=self.embed_dim,
+            in_shape=model_dim,
+            out_shape=model_dim,
+            groups=1,
+            use_bn=True,
+            channels_last=True,
+        )
 
     def forward(self, x):
         if self.model_name == "phikonv2":
@@ -153,7 +154,7 @@ class DPT(nn.Module):
             patch_embeddings = reshaped_embed
 
         # Debug print
-        #for layer in patch_embeddings:
+        # for layer in patch_embeddings:
         #    print("layer", layer.shape)
 
         z0, z1, z2, z3 = patch_embeddings

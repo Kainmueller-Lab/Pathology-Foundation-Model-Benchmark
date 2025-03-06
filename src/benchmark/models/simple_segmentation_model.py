@@ -3,10 +3,12 @@ import os
 from pathlib import Path
 from typing import Sequence, Union
 
+import numpy as np
 import timm
 import torch
-import numpy as np
+import torch.nn.functional as F
 from dotenv import load_dotenv
+from einops import rearrange
 from huggingface_hub import login
 from musk import modeling, utils  # modeling is needed to register musk with timm
 from omegaconf import ListConfig, OmegaConf
@@ -22,8 +24,6 @@ from timm.data.transforms_factory import create_transform
 from timm.layers import SwiGLUPacked
 from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
-import torch.nn.functional as F
-from einops import rearrange
 
 # load the environment variables
 dotenv_path = Path(__file__).parents[2] / ".env"
@@ -171,7 +171,10 @@ def load_model_and_transform(
     elif model_name == "phikonv2":
         model_cfg = OmegaConf.load("configs/models/phikonv2.yaml")
         model = AutoModel.from_pretrained(
-            model_cfg.url, trust_remote_code=True, output_hidden_states=features_only, torch_dtype=torch.float32
+            model_cfg.url,
+            trust_remote_code=True,
+            output_hidden_states=features_only,
+            torch_dtype=torch.float32,
         )  # Explicitly set model dtype to match internal layers
         # the eval pipeline crashes, if it gets float16 tensors. Setting the model dtype to float32 fixes this issue.
         if not features_only:
@@ -282,7 +285,10 @@ def load_model_and_transform(
 
         transform = transforms.Compose(
             [
-                transforms.Resize(model_cfg.img_size, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.Resize(
+                    model_cfg.img_size,
+                    interpolation=transforms.InterpolationMode.BILINEAR,
+                ),
                 MaybeToTensor(),
                 transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD),
             ]
@@ -351,8 +357,14 @@ def load_model_and_transform(
             # Create mock feature maps on the same device as input tensor
             # to maintain device consistency throughout the forward pass
             model.forward = lambda x: [
-                torch.zeros(x.shape[0], dim, img_size // patch_size, img_size // patch_size, 
-                        device=x.device) for dim in model_dim
+                torch.zeros(
+                    x.shape[0],
+                    dim,
+                    img_size // patch_size,
+                    img_size // patch_size,
+                    device=x.device,
+                )
+                for dim in model_dim
             ]
     else:
         raise ValueError(f"Unsupported model name: {model_name}")

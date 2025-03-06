@@ -6,7 +6,10 @@ import einops
 import torch
 import torch.nn as nn
 
-from benchmark.simple_segmentation_model import clean_str, load_model_and_transform
+from benchmark.models.simple_segmentation_model import (
+    clean_str,
+    load_model_and_transform,
+)
 
 
 class Conv2DBlock(nn.Module):
@@ -40,7 +43,7 @@ class Conv2DBlock(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):  # noqa: D102
+    def forward(self, x):
         return self.block(x)
 
 

@@ -1,11 +1,13 @@
-import lmdb
 import os
 import pickle
 import tempfile
+
+import lmdb
 import numpy as np
 from torch.utils.data import Dataset
-from benchmark.lmdb_dataset import LMDBDataset
-from benchmark.utils import get_weighted_sampler
+
+from benchmark.dataset.lmdb_dataset import LMDBDataset
+from benchmark.utils.utils import get_weighted_sampler
 
 
 def create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=None):
@@ -69,7 +71,11 @@ def test_filtered_dataset():
     with tempfile.TemporaryDirectory() as tmp_dir:
         lmdb_path = f"{tmp_dir}/mock_lmdb"
         os.makedirs(os.path.dirname(lmdb_path), exist_ok=True)
-        create_mock_lmdb(lmdb_path, num_samples=10, include_sample_names=["sample_1", "sample_3", "sample_5"])
+        create_mock_lmdb(
+            lmdb_path,
+            num_samples=10,
+            include_sample_names=["sample_1", "sample_3", "sample_5"],
+        )
         dataset = LMDBDataset(path=lmdb_path, include_sample_names=["sample_1", "sample_3"])
         assert len(dataset) == 2
         for sample in dataset:
@@ -85,7 +91,7 @@ def test_index_out_of_range():
         dataset = LMDBDataset(path=lmdb_path)
         try:
             dataset[5]
-            assert False, "Expected IndexError but did not raise."
+            raise AssertionError("Expected IndexError but did not raise.")
         except IndexError:
             pass
         del dataset

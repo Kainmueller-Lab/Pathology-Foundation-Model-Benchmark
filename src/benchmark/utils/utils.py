@@ -8,8 +8,9 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision.transforms import v2
 
-from benchmark.lmdb_dataset import LMDBDataset
+from benchmark.dataset.lmdb_dataset import LMDBDataset
 
 
 def get_height_width(array):
@@ -54,10 +55,12 @@ def to_tuple(dim: Union[int, tuple[int, ...]]) -> tuple[int, ...]:
     else:
         raise ValueError("Dimension must be an integer or a tuple of two integers.")
 
+
 def maybe_resize(x, y):
     if x.shape != y.shape:
         return F.interpolate(x, size=y.shape[-2:], mode="bilinear", align_corners=True)
     return x
+
 
 def prep_datasets(cfg):
     """Prepare the training and validation datasets.
@@ -80,14 +83,18 @@ def prep_datasets(cfg):
     datasets = []
     for split in ["train", "valid", "test"]:
         include_fovs = split_df[split_df["train_test_val_split"] == split]["sample_name"].tolist()
-        if 'tile' in include_fovs[0].lower():
-            include_tile_names=include_fovs
-            include_sample_names=None
+        if "tile" in include_fovs[0].lower():
+            include_tile_names = include_fovs
+            include_sample_names = None
         else:
-            include_tile_names=None
-            include_sample_names=include_fovs
+            include_tile_names = None
+            include_sample_names = include_fovs
 
-        dataset = LMDBDataset(path=cfg.dataset.path, include_sample_names=include_sample_names, include_tile_names=include_tile_names)
+        dataset = LMDBDataset(
+            path=cfg.dataset.path,
+            include_sample_names=include_sample_names,
+            include_tile_names=include_tile_names,
+        )
         datasets.append(dataset)
     datasets.append(label_dict)
     return tuple(datasets)
@@ -272,8 +279,7 @@ def save_imgs_for_debug(
     instance_mask=None,
     instance_mask_aug=None,
 ):
-    """
-    Saves images and masks for debugging purposes to an HDF5 file.
+    """Saves images and masks for debugging purposes to an HDF5 file.
 
     Args:
         snap_dir (str): The directory where the snapshot file will be saved.
@@ -290,19 +296,48 @@ def save_imgs_for_debug(
         The saved HDF5 file will contain the datasets: 'img', 'pred_mask', 'semantic_mask',
         'img_aug', 'semantic_mask_aug', and optionally 'instance_mask' and 'instance_mask_aug' if provided.
     """
-
     with h5py.File(os.path.join(snap_dir, f"snapshot_step_{step}.hdf"), "w") as f:
         f.create_dataset("img", data=img.cpu().detach().numpy().astype(np.float32))
-        f.create_dataset("pred_mask", data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32))
-        f.create_dataset("semantic_mask", data=semantic_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
-        f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy().astype(np.float32))
         f.create_dataset(
-            "semantic_mask_aug",
-            data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+            "pred_mask",
+            data=pred_mask.softmax(1).cpu().detach().numpy().astype(np.float32),
         )
+        f.create_dataset(
+            "semantic_mask",
+            data=semantic_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+        )
+
+        if img_aug is not None:
+            f.create_dataset("img_aug", data=img_aug.cpu().detach().numpy().astype(np.float32))
+            f.create_dataset(
+                "semantic_mask_aug",
+                data=semantic_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+            )
         if instance_mask is not None:
-            f.create_dataset("instance_mask", data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8))
+            f.create_dataset(
+                "instance_mask",
+                data=instance_mask.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
+            )
+        if instance_mask_aug is not None:
             f.create_dataset(
                 "instance_mask_aug",
                 data=instance_mask_aug.unsqueeze(1).cpu().detach().numpy().astype(np.uint8),
             )
+
+
+class MaybeToTensor(v2.ToTensor):
+    """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor, or keep as is if already a tensor."""
+
+    def __call__(self, pic):
+        """Call function.
+
+        Args:
+            pic (PIL Image, numpy.ndarray or torch.tensor): Image to be converted to tensor.
+
+        Returns
+        -------
+            Tensor: Converted image.
+        """
+        if isinstance(pic, torch.Tensor):
+            return pic
+        return super().__call__(pic)

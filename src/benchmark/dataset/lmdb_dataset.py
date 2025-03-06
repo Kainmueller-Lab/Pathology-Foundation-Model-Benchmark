@@ -32,7 +32,7 @@ class LMDBDataset(Dataset):
             for key, value in cursor:
                 data = pickle.loads(value)
                 if self.include_tile_names is not None:
-                    if data['tile_name'] in self.include_tile_names:
+                    if data["tile_name"] in self.include_tile_names:
                         include_keys.append(key)
                         continue
 

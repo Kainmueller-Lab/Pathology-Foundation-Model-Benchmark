@@ -1,6 +1,6 @@
 import torch
-import kornia.augmentation as Kaug
-from benchmark.custom_augmentations import HEDNormalize  # Replace 'your_module' with the actual module name
+
+from benchmark.augmentations.custom_augmentations import HEDNormalize
 
 
 def test_hed_normalize():
@@ -12,8 +12,10 @@ def test_hed_normalize():
     assert hasattr(hed_normalize, "rgb_t")
     assert hasattr(hed_normalize, "hed_t")
 
+    batch_size = 4
+
     # Test forward pass
-    batch = torch.rand(4, 3, 32, 32)
+    batch = torch.rand(batch_size, 3, 32, 32)
     batch_aug = hed_normalize(batch)
     assert batch_aug.shape == batch.shape
     assert not torch.all(torch.eq(batch, batch_aug))
@@ -26,8 +28,8 @@ def test_hed_normalize():
     assert batch.grad is not None
 
     # Test compatibility with masks
-    mask = torch.round(torch.rand(2, 1, 32, 32))
-    batch_aug_mask = hed_normalize(batch)
+    mask = torch.round(torch.rand(batch_size, 1, 32, 32))
+    batch_aug_mask = hed_normalize(mask)
     assert batch_aug_mask.shape == batch.shape
 
     # Test repeatability
