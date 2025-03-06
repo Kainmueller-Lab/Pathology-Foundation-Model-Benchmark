@@ -132,6 +132,8 @@ class HEDNormalize(K.IntensityAugmentationBase2D):
         -------
             torch.Tensor: Transformed tensor.
         """
+        assert len(input.shape) == 4
+        assert input.shape[1] == 3 # RGB image only
         batch_size = input.shape[0]
         device = input.device
         sigmas = self.rng(self.sigma, batch_size).to(device)

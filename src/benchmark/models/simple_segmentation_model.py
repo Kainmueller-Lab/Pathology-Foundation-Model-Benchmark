@@ -423,7 +423,7 @@ def musk_MultiScaleForward(
     num_splits = [math.ceil(size / max_split_size) for size in img_sizes]  # number of splits each scale
     input_multiscale = []
     for size, num_split in zip(img_sizes, num_splits):
-        x = F.interpolate(input.to(torch.float32), size=size, mode="bicubic").to(input.dtype)
+        x = F.interpolate(input.to(torch.float32), size=size, mode="bicubic", align_corners=False).to(input.dtype)
         x = utils.split_chessboard(x, num_split=num_split)
         input_multiscale.append(x)
 

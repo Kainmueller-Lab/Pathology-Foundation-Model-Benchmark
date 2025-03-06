@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from benchmark.eval import Eval, extract_numbers_from_string
+from benchmark.run.eval import Eval, extract_numbers_from_string
 
 
 class MockDataset(Dataset):

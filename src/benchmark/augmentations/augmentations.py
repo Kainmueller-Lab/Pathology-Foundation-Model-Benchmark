@@ -31,6 +31,7 @@ class Augmenter(Kaug.AugmentationSequential):
 
     def __init__(self, params, **kwargs):
         """Initializes the Augmenter class.
+
         Args:
             params (dict): Dictionary of augmentation names and their parameters, e.g.
                 params = {
@@ -39,7 +40,7 @@ class Augmenter(Kaug.AugmentationSequential):
                 }
             kwargs (dict): Keyword arguments for the transformations base class, e.g.
                 data_keys=["image", "mask"], same_on_batch=False, keepdim=True, etc.
-        """  # noqa: D205
+        """
         self.params = params
         self.transforms = self.define_augmentations()
         super().__init__(*self.transforms, **kwargs)
@@ -64,10 +65,11 @@ class Augmenter(Kaug.AugmentationSequential):
         return transforms
 
     def repeat_last_transform(self, *args):
-        """Repeats transformations with the same random parameters that were used in the last
-        transform. Only works for certain transformations, e.g. noise distributions will not be
+        """Repeats transformations with the same random parameters used in last transform.
+
+        Only works for certain transformations, e.g. noise distributions will not be
         identical.
         Args:
             args (dict): Keyword arguments for the last transform.
-        """  # noqa: D205
+        """
         return self.__call__(*args, params=self._params)

@@ -15,24 +15,19 @@ def test_hed_normalize():
     batch_size = 4
 
     # Test forward pass
-    batch = torch.rand(batch_size, 3, 32, 32)
-    batch_aug = hed_normalize(batch)
-    assert batch_aug.shape == batch.shape
-    assert not torch.all(torch.eq(batch, batch_aug))
+    img_batch = torch.rand(batch_size, 3, 32, 32)
+    img_batch_aug = hed_normalize(img_batch)
+    assert img_batch_aug.shape == img_batch.shape
+    assert not torch.all(torch.eq(img_batch, img_batch_aug))
 
     # Test differentiability
-    batch.requires_grad_(True)
-    batch_aug_diff = hed_normalize(batch)
+    img_batch.requires_grad_(True)
+    batch_aug_diff = hed_normalize(img_batch)
     loss = batch_aug_diff.sum()
     loss.backward()
-    assert batch.grad is not None
-
-    # Test compatibility with masks
-    mask = torch.round(torch.rand(batch_size, 1, 32, 32))
-    batch_aug_mask = hed_normalize(mask)
-    assert batch_aug_mask.shape == batch.shape
+    assert img_batch.grad is not None
 
     # Test repeatability
-    batch_aug_1 = hed_normalize(batch)
-    batch_aug_2 = hed_normalize(batch)
+    batch_aug_1 = hed_normalize(img_batch)
+    batch_aug_2 = hed_normalize(img_batch)
     assert not torch.allclose(batch_aug_1, batch_aug_2)  # Should be stochastic

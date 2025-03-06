@@ -8,7 +8,6 @@ import torch
 import wandb
 from omegaconf import OmegaConf
 
-from benchmark.eval import Eval
 from benchmark.heads.dpt import DPT
 from benchmark.heads.unetr import UnetR
 from benchmark.models.hovernext import HoverNext
@@ -16,7 +15,8 @@ from benchmark.models.simple_segmentation_model import (
     MockModel,
     SimpleSegmentationModel,
 )
-from benchmark.train import create_dataloaders, initialize_dist, make_log_dirs
+from benchmark.run.eval import Eval
+from benchmark.run.train import create_dataloaders, initialize_dist, make_log_dirs
 from benchmark.utils.utils import prep_datasets
 
 os.environ["OMP_NUM_THREADS"] = "1"

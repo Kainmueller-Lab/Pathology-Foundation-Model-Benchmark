@@ -13,7 +13,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from benchmark.augmentations.augmentations import Augmenter
-from benchmark.eval import Eval
 from benchmark.heads.dpt import DPT
 from benchmark.heads.unetr import UnetR
 from benchmark.models.hovernext import HoverNext
@@ -21,6 +20,7 @@ from benchmark.models.simple_segmentation_model import (
     MockModel,
     SimpleSegmentationModel,
 )
+from benchmark.run.eval import Eval
 from benchmark.utils.init_dist import init_distributed
 from benchmark.utils.utils import (
     EMAInverseClassFrequencyLoss,
@@ -174,7 +174,7 @@ def train(cfg):
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
-
+        # Default to no augmentations
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 
