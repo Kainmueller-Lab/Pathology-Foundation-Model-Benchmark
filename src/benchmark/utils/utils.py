@@ -83,7 +83,7 @@ def prep_datasets(cfg):
     datasets = []
     for split in ["train", "valid", "test"]:
         include_fovs = split_df[split_df["train_test_val_split"] == split]["sample_name"].tolist()
-        if "tile" in include_fovs[0].lower():
+        if "tile" in str(include_fovs[0]).lower():
             include_tile_names = include_fovs
             include_sample_names = None
         else:
