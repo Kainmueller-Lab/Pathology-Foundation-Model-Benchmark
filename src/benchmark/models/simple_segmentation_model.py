@@ -26,7 +26,7 @@ from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
 
 # load the environment variables
-dotenv_path = Path(__file__).parents[2] / ".env"
+dotenv_path = Path(__file__).parents[3] / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 HF_TOKEN = os.getenv("HF_TOKEN")
 
