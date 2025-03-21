@@ -174,3 +174,6 @@ configs/config_unetr_arctique.yaml
 configs/config_unetr_lizard.yaml
 configs/config_unetr_pannuke.yaml
 configs/config_unetr_schuerch.yaml
+configs/config_unetr_schuerch_*
+configs/config_msaug_schuerch.yaml
+temp.ipynb

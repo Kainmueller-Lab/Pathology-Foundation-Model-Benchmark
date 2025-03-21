@@ -7,14 +7,14 @@ import torch
 from skimage.measure import regionprops_table
 from tqdm import tqdm
 
-from benchmark.metric_utils import (
+from benchmark.utils.metric_utils import (
     accuracy,
     confusion_matrix_func,
     f1_score_class,
     precision,
     recall,
 )
-from benchmark.utils import maybe_resize
+from benchmark.utils.utils import maybe_resize, save_imgs_for_debug
 
 
 def extract_numbers_from_string(s):
@@ -24,14 +24,22 @@ def extract_numbers_from_string(s):
     Args:
         s (str): The input string.
 
-    Returns:
+    Returns
+    -------
         list: A list of numbers as strings. Convert to integers or floats if needed.
     """
     return re.findall(r"\d+\.?\d*", s)
 
 
 class Eval:
-    def __init__(self, label_dict, instance_level=True, pixel_level=False, save_dir=None, fname=None):
+    def __init__(
+        self,
+        label_dict,
+        instance_level=True,
+        pixel_level=False,
+        save_dir=None,
+        fname=None,
+    ):
         """
         Initializes the evaluation pipeline.
 
@@ -52,7 +60,7 @@ class Eval:
         else:
             self.fname = "evaluation_results.csv"
 
-    def compute_metrics(self, model, dataloader, device):
+    def compute_metrics(self, model, dataloader, device, save_preds=False, snap_dir=None):
         """
         Computes the metrics over the entire dataset.
 
@@ -61,25 +69,45 @@ class Eval:
             dataloader (torch.utils.data.DataLoader): DataLoader for the dataset.
             device (torch.device): Device to run the model on.
 
-        Returns:
+        Returns
+        -------
             dict: Computed metrics.
             dict: Instance-level predictions (empty if instance_level=False).
         """
         print("Running inference for computing metrics...")
+        if save_preds:
+            print(f"Saving predictions at {snap_dir}")
         pred_dfs = []
         model.eval()
         with torch.no_grad():
-            for sample_dict in tqdm(dataloader):
+            for i, sample_dict in tqdm(enumerate(dataloader)):
                 img = sample_dict["image"].float().to(device)
-                semantic_mask = sample_dict["semantic_mask"].numpy()
-                instance_mask = sample_dict.get("instance_mask", None).numpy()
+                semantic_mask = sample_dict["semantic_mask"]
+                instance_mask = sample_dict.get("instance_mask", None)
                 sample_name = sample_dict.get("sample_name", None)
 
                 # Run model to get predictions
                 pred_logits = model(img)
                 pred_logits = maybe_resize(pred_logits, semantic_mask)
+
+                if save_preds:
+                    save_imgs_for_debug(
+                        snap_dir,
+                        i,
+                        img,
+                        pred_logits,
+                        semantic_mask,
+                        img_aug=None,
+                        semantic_mask_aug=None,
+                        instance_mask=instance_mask,
+                        instance_mask_aug=None,
+                    )
+
                 # Assuming pred_logits is (batch_size, num_classes, H, W)
-                pred_probs = torch.softmax(pred_logits, dim=1).cpu().numpy()
+                pred_probs = torch.softmax(pred_logits, dim=1)
+                pred_probs = pred_probs.cpu().numpy()
+                semantic_mask = semantic_mask.numpy()
+                instance_mask = instance_mask.numpy()
 
                 batch_size = img.shape[0]
                 for i in range(batch_size):
@@ -102,35 +130,42 @@ class Eval:
         # Compute metrics
         if self.instance_level:
             metrics = self.compute_metrics_instance_level(
-                y_pred=pred_df["pred_class"].values, y_true=pred_df["groundtruth"].values
+                y_pred=pred_df["pred_class"].values,
+                y_true=pred_df["groundtruth"].values,
             )
             return metrics
         else:
             return {}
 
     def _get_instance_level_labels(self, semantic_pred, semantic_gt, instance_gt):
-        """
-        Extracts per-instance true and predicted class labels using regionprops_table.
+        """Extracts per-instance true and predicted class labels using regionprops_table.
 
         Args:
             semantic_pred (np.ndarray): Predicted semantic segmentation mask (C, H, W).
             semantic_gt (np.ndarray): Ground truth semantic segmentation mask (H, W).
             instance_gt (np.ndarray): Ground truth instance segmentation mask (H, W).
-        Returns:
+
+        Returns
+        -------
                 data_frame: Dataframe containing instance-level predictions amd ground truths in
                 the following format:
                 label | intensity_mean_gt | class_0 | class_1 | ... | class_n | pred_class
 
         """
-
-        props_gt = regionprops_table(instance_gt, intensity_image=semantic_gt, properties=("label", "intensity_mean"))
+        props_gt = regionprops_table(
+            instance_gt,
+            intensity_image=semantic_gt,
+            properties=("label", "intensity_mean"),
+        )
         props_gt = pd.DataFrame(props_gt)
         props_gt.rename(columns={"intensity_mean": "groundtruth"}, inplace=True)
         props_gt["groundtruth"] = props_gt["groundtruth"].astype(int)
 
         semantic_pred = np.moveaxis(semantic_pred, 0, -1)
         props_pred = regionprops_table(
-            instance_gt, intensity_image=semantic_pred, properties=("label", "intensity_mean")
+            instance_gt,
+            intensity_image=semantic_pred,
+            properties=("label", "intensity_mean"),
         )
         props_pred = pd.DataFrame(props_pred)
 
@@ -157,7 +192,8 @@ class Eval:
             y_pred (np.ndarray): Predicted class labels per instance.
             y_true (np.ndarray): True class labels per instance.
 
-        Returns:
+        Returns
+        -------
             dict: Computed metrics.
         """
         metrics = {}

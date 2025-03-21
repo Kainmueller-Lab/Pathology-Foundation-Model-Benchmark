@@ -4,7 +4,7 @@ from pathlib import Path
 
 from omegaconf import OmegaConf
 
-from benchmark.train import train
+from benchmark.run.train import train
 
 
 def test_train():

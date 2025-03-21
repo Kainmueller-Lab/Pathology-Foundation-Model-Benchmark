@@ -1,39 +1,42 @@
 project: patho_benchmark
-experiment: SimpleModel_experiment_1
-experiment_path: /fast/AG_Kainmueller/fabian/projects/hackathon_2024/experiments
-training_steps: 30000
-log_interval: 1000
-val_interval: 1000
+experiment: DPT
+experiment_path: experiments
+training_steps: 20000
+log_interval: 10
+val_interval: 200
 multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
-save_all_ckpts: false # watch out for memory
+save_all_ckpts: false # watch out for storage
+early_stopping: 2000
 
 dataset:
-  name: 'lizard_domain_shift_glas'
-  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/domain_shift_splits/lizard_domaingen_glas_test_split.csv
-  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/label_dict.json
-  batch_size: 128
+  name: 'schuerch'
+  batch_size: 32
   uniform_class_sampling: True
   sample_excluded_classes: False
-
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/schuerch_dataset_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
+  
 model:
-  model_wrapper: SimpleSegmentationModel
+  model_wrapper: DPT
+  backbone: uni #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
   unfreeze_backbone: false
+  do_ms_aug: false
 
 optimizer:
   name: AdamW
   params:
-    lr: 3e-5
+    lr: 2e-5
     weight_decay: 0.03
   warmup_steps: 1000
 
 scheduler:
   name: CosineAnnealingLR
   params:
-    T_max: 30000
+    T_max: 10000
     eta_min: 1e-6
 
 loss_fn:

@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from segmentation_models_pytorch.base import modules as md
 
-from benchmark.simple_segmentation_model import clean_str
+from benchmark.models.simple_segmentation_model import clean_str
 
 
 class HoverMockModel(nn.Module):
@@ -23,8 +23,12 @@ class HoverMockModel(nn.Module):
 
 
 class HoverNext(nn.Module):
-    def __init__(self, model_name="convnextv2_large.fcmae_ft_in22k_in1k", num_classes=8,
-                 do_ms_aug=False): # multi-scale augmentation not yet implemented.
+    def __init__(
+        self,
+        model_name="convnextv2_large.fcmae_ft_in22k_in1k",
+        num_classes=8,
+        do_ms_aug=False,
+    ):  # multi-scale augmentation not yet implemented.
         super().__init__()
         if clean_str(model_name) == "mock":
             self.model = HoverMockModel(num_classes)
@@ -73,14 +77,14 @@ class TimmEncoderFixed(nn.Module):
         drop_path_rate=0.0,
     ):
         super().__init__()
-        kwargs = dict(
-            in_chans=in_channels,
-            features_only=True,
-            pretrained=pretrained,
-            out_indices=tuple(range(depth)),
-            drop_rate=drop_rate,
-            drop_path_rate=drop_path_rate,
-        )
+        kwargs = {
+            "in_chans": in_channels,
+            "features_only": True,
+            "pretrained": pretrained,
+            "out_indices": tuple(range(depth)),
+            "drop_rate": drop_rate,
+            "drop_path_rate": drop_path_rate,
+        }
 
         self.model = timm.create_model(name, **kwargs)
 
@@ -230,7 +234,7 @@ class DecoderBlock(nn.Module):
         self.attention2 = md.Attention(attention_type, in_channels=out_channels)
 
     def forward(self, x, skip=None):
-        x = F.interpolate(x, scale_factor=2, mode="nearest")
+        x = F.interpolate(x, scale_factor=2, mode="nearest", align_corners=False)
         if skip is not None:
             x = torch.cat([x, skip], dim=1)
             x = self.attention1(x)

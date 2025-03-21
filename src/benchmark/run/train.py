@@ -12,13 +12,17 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-from benchmark.augmentations import Augmenter
-from benchmark.eval import Eval
-from benchmark.hovernext import HoverNext
-from benchmark.init_dist import init_distributed
-from benchmark.simple_segmentation_model import MockModel, SimpleSegmentationModel
-from benchmark.unetr import UnetR
-from benchmark.utils import (
+from benchmark.augmentations.augmentations import Augmenter
+from benchmark.heads.dpt import DPT
+from benchmark.heads.unetr import UnetR
+from benchmark.models.hovernext import HoverNext
+from benchmark.models.simple_segmentation_model import (
+    MockModel,
+    SimpleSegmentationModel,
+)
+from benchmark.run.eval import Eval
+from benchmark.utils.init_dist import init_distributed
+from benchmark.utils.utils import (
     EMAInverseClassFrequencyLoss,
     ExcludeClassLossWrapper,
     get_weighted_sampler,
@@ -32,9 +36,9 @@ torch.backends.cudnn.benchmark = True
 MAX_EARLY_STOPPING = 5000
 
 
-def make_log_dirs(cfg):
+def make_log_dirs(cfg, split="train"):
     """Prepare directories for writing training infos."""
-    log_dir = os.path.join(cfg.experiment_path, cfg.experiment, "train")
+    log_dir = os.path.join(cfg.experiment_path, cfg.experiment, split)
     checkpoint_path = os.path.join(log_dir, "checkpoints")
     snap_dir = os.path.join(log_dir, "snaps")
     os.makedirs(snap_dir, exist_ok=True)
@@ -46,7 +50,7 @@ def make_log_dirs(cfg):
     return log_dir, checkpoint_path, snap_dir
 
 
-def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):  # noqa: D103
+def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None):
     train_dataloader = DataLoader(
         train_dset,
         batch_size=cfg.dataset.batch_size,
@@ -59,7 +63,11 @@ def create_dataloaders(cfg, train_dset, val_dset, test_dset, train_sampler=None)
     )
     val_dataloader = DataLoader(val_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0)
     test_dataloader = DataLoader(
-        test_dset, batch_size=cfg.dataset.batch_size, pin_memory=True, num_workers=0, shuffle=False
+        test_dset,
+        batch_size=cfg.dataset.batch_size,
+        pin_memory=True,
+        num_workers=0,
+        shuffle=False,
     )
     return train_dataloader, val_dataloader, test_dataloader
 
@@ -69,7 +77,10 @@ def build_lr_scheduler(cfg, optimizer):
         optimizer,
         [  # linear warmup
             torch.optim.lr_scheduler.LinearLR(
-                optimizer, start_factor=0.1, end_factor=1.0, total_iters=cfg.optimizer.warmup_steps
+                optimizer,
+                start_factor=0.1,
+                end_factor=1.0,
+                total_iters=cfg.optimizer.warmup_steps,
             ),
             getattr(torch.optim.lr_scheduler, cfg.scheduler.name)(optimizer, **cfg.scheduler.params),
         ],
@@ -83,7 +94,12 @@ def initialize_dist(model):
         LOCAL_RANK, LOCAL_WORLD_SIZE, RANK, WORLD_SIZE = init_distributed()
         device = torch.device(f"cuda:{LOCAL_RANK}")
         model = model.cuda()
-        model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK, find_unused_parameters=True)
+        model = DDP(
+            model,
+            device_ids=[LOCAL_RANK],
+            output_device=LOCAL_RANK,
+            find_unused_parameters=True,
+        )
     else:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         WORLD_SIZE = 1
@@ -101,8 +117,8 @@ def create_loss_fn(cfg, label_dict):
             loss_fn = EMAInverseClassFrequencyLoss(
                 loss_fn=loss_fn,
                 num_classes=len(label_dict),
-                exclude_class=cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None,
-                class_weighting=cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False,
+                exclude_class=(cfg.loss_fn.exclude_classes if hasattr(cfg.loss_fn, "exclude_classes") else None),
+                class_weighting=(cfg.loss_fn.class_weighting if hasattr(cfg.loss_fn, "class_weighting") else False),
             )
     elif hasattr(kornia.losses, cfg.loss_fn.name):
         loss_fn = getattr(kornia.losses, cfg.loss_fn.name)(**cfg.loss_fn.params)
@@ -143,7 +159,7 @@ def train(cfg):
     model = model_wrapper(
         model_name=cfg.model.backbone,
         num_classes=len(label_dict),
-        do_ms_aug=getattr(cfg.model, "do_ms_aug", False)  # Default to False if not specified
+        do_ms_aug=getattr(cfg.model, "do_ms_aug", False),  # Default to False if not specified
     )
     if cfg.model.unfreeze_backbone:
         model.unfreeze_model()
@@ -158,7 +174,7 @@ def train(cfg):
     if hasattr(cfg, "augmentations"):
         augment_fn = Augmenter(cfg.augmentations, data_keys=["input", "mask", "mask"])
     else:
-
+        # Default to no augmentations
         def augment_fn(img, mask, instance_mask):
             return img, mask, instance_mask
 

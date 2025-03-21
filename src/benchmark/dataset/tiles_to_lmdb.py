@@ -1,25 +1,22 @@
-import os
-import lmdb
-import pickle
-import fastremap
 import argparse
+import os
+import pickle
 
-from tqdm import tqdm
-import numpy as np
-
-from benchmark.split_to_tiles import transform_to_tiles
-
+import fastremap
+import lmdb
 from bio_image_datasets.arctique_dataset import ArctiqueDataset
+from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.lizard_dataset import LizardDataset
 from bio_image_datasets.pannuke_dataset import PanNukeDataset
-from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
+from tqdm import tqdm
+
+from benchmark.dataset.split_to_tiles import transform_to_tiles
 
 
 def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
-    """
-    Create an LMDB database for a dataset
+    """Create an LMDB database for a dataset.
 
     Args:
         dataset: Instance of a dataset.
@@ -27,8 +24,6 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
         tile_size: The size of the tiles to create.
         map_size: The maximum size of the LMDB map. Use ~100GB as a default.
     """
-
-    # Create the LMDB environment
     env = lmdb.open(lmdb_path, map_size=map_size)
 
     tile_idx = 0  # Global tile index for keys
@@ -132,4 +127,9 @@ if __name__ == "__main__":
     dataset = dataset_class(local_path=args.local_path)
 
     # Create LMDB database
-    create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
+    create_lmdb_database(
+        dataset,
+        lmdb_path=args.output_path,
+        tile_size=args.tile_size,
+        map_size=args.map_size,
+    )

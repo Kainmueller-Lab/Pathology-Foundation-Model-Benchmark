@@ -1,20 +1,22 @@
-import unittest
-import tempfile
-import shutil
 import os
-import lmdb
 import pickle
+import shutil
+import tempfile
+import unittest
+
+import lmdb
 import numpy as np
-from PIL import Image
 import scipy.io as sio
-from skimage import io
 
 # Import the necessary modules from your project
 # Adjust the import paths as necessary
 from bio_image_datasets.lizard_dataset import LizardDataset
 from bio_image_datasets.segpath_dataset import SegPath
-from benchmark.tiles_to_lmdb import create_lmdb_database
-from benchmark.split_to_tiles import transform_to_tiles
+from PIL import Image
+from skimage import io
+
+from benchmark.dataset.split_to_tiles import transform_to_tiles
+from benchmark.dataset.tiles_to_lmdb import create_lmdb_database
 
 
 class TestCreateLMDBDatabase(unittest.TestCase):
@@ -120,12 +122,29 @@ class TestCreateLMDBDatabase(unittest.TestCase):
             key, value = entries[0]
             tile_data = pickle.loads(value)
             # Verify that the tile data contains expected keys
-            expected_keys = {"tile_name", "sample_name", "image", "semantic_mask", "instance_mask"}
-            self.assertTrue(expected_keys.issubset(tile_data.keys()), "Tile data is missing expected keys.")
+            expected_keys = {
+                "tile_name",
+                "sample_name",
+                "image",
+                "semantic_mask",
+                "instance_mask",
+            }
+            self.assertTrue(
+                expected_keys.issubset(tile_data.keys()),
+                "Tile data is missing expected keys.",
+            )
             # Verify that the image and masks are numpy arrays
             self.assertIsInstance(tile_data["image"], np.ndarray, "Image should be a NumPy array.")
-            self.assertIsInstance(tile_data["semantic_mask"], np.ndarray, "Semantic mask should be a NumPy array.")
-            self.assertIsInstance(tile_data["instance_mask"], np.ndarray, "Instance mask should be a NumPy array.")
+            self.assertIsInstance(
+                tile_data["semantic_mask"],
+                np.ndarray,
+                "Semantic mask should be a NumPy array.",
+            )
+            self.assertIsInstance(
+                tile_data["instance_mask"],
+                np.ndarray,
+                "Instance mask should be a NumPy array.",
+            )
         env.close()
 
     def test_create_lmdb_segpath_dataset(self):
@@ -152,12 +171,23 @@ class TestCreateLMDBDatabase(unittest.TestCase):
             tile_data = pickle.loads(value)
             # Verify that the tile data contains expected keys
             expected_keys = {"tile_name", "sample_name", "image", "semantic_mask"}
-            self.assertTrue(expected_keys.issubset(tile_data.keys()), "Tile data is missing expected keys.")
+            self.assertTrue(
+                expected_keys.issubset(tile_data.keys()),
+                "Tile data is missing expected keys.",
+            )
             # Verify that the image and mask are numpy arrays
             self.assertIsInstance(tile_data["image"], np.ndarray, "Image should be a NumPy array.")
-            self.assertIsInstance(tile_data["semantic_mask"], np.ndarray, "Semantic mask should be a NumPy array.")
+            self.assertIsInstance(
+                tile_data["semantic_mask"],
+                np.ndarray,
+                "Semantic mask should be a NumPy array.",
+            )
             # Since SegPath doesn't have instance masks, ensure 'instance_mask' is not in tile_data
-            self.assertNotIn("instance_mask", tile_data, "Instance mask should not be present in SegPath tiles.")
+            self.assertNotIn(
+                "instance_mask",
+                tile_data,
+                "Instance mask should not be present in SegPath tiles.",
+            )
         env.close()
 
 

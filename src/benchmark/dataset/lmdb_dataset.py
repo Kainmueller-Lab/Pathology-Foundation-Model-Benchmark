@@ -4,18 +4,17 @@ import lmdb
 from torch.utils.data import Dataset
 
 
-class LMDBDataset(Dataset):  # noqa: D101
-    def __init__(self, path, include_sample_names=None):
-        """
-        Initializes the LMDBDataset.
+class LMDBDataset(Dataset):
+    def __init__(self, path, include_sample_names=None, include_tile_names=None):
+        """Initializes the LMDBDataset.
 
         Args:
             path (str): Path to the LMDB file.
             include_sample_names (list, optional): List of sample names to include. Default is None, meaning all samples are included.
         """
-
         self.lmdb_path = path
         self.include_sample_names = include_sample_names
+        self.include_tile_names = include_tile_names
 
         # Open the LMDB environment
         self.env = lmdb.open(self.lmdb_path, readonly=True, lock=False, readahead=False, meminit=False)
@@ -32,10 +31,19 @@ class LMDBDataset(Dataset):  # noqa: D101
             cursor = txn.cursor()
             for key, value in cursor:
                 data = pickle.loads(value)
-                if self.include_sample_names is None:
+                if self.include_tile_names is not None:
+                    if data["tile_name"] in self.include_tile_names:
+                        include_keys.append(key)
+                        continue
+
+                elif self.include_sample_names is not None:
+                    if data["sample_name"] in self.include_sample_names:
+                        include_keys.append(key)
+                        continue
+
+                else:  # Include all keys if include_sample_names is None and include_tile_names is None
                     include_keys.append(key)
-                elif data["sample_name"] in self.include_sample_names:
-                    include_keys.append(key)
+
         self.lmdb_key_list = include_keys
 
     def __len__(self):

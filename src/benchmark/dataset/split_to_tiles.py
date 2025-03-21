@@ -1,5 +1,6 @@
 import numpy as np
-from benchmark.utils import get_height_width, to_tuple
+
+from benchmark.utils.utils import get_height_width, to_tuple
 
 
 def center_pad_to_size(array, desired_shape):
@@ -10,10 +11,12 @@ def center_pad_to_size(array, desired_shape):
         array (numpy.ndarray): The array to pad.
         desired_shape (tuple of int): The desired shape after padding. Must have the same number of dimensions as `array`.
 
-    Returns:
+    Returns
+    -------
         numpy.ndarray: The center-padded array.
 
-    Raises:
+    Raises
+    ------
         AssertionError: If `array` and `desired_shape` have different numbers of dimensions or if any dimension in `desired_shape` is negative.
     """
     current_shape = array.shape
@@ -47,7 +50,8 @@ def transform_to_tiles(array, tile_size=224, renumber_instances=False):
         renumber_instances (bool, optional): Whether to renumber instance IDs in each tile to ensure
             sequential numbering starting from 1. Useful for instance segmentation masks. Defaults to False.
 
-    Returns:
+    Returns
+    -------
         list of numpy.ndarray: A list containing the tiles of the array.
 
     """
@@ -98,8 +102,9 @@ def transform_to_tiles(array, tile_size=224, renumber_instances=False):
 
 if __name__ == "__main__":
     import os
-    from matplotlib import pyplot as plt
+
     from bio_image_datasets.lizard_dataset import LizardDataset
+    from matplotlib import pyplot as plt
 
     # Define the folder to save visualizations
     visualization_folder = "./visualizations"

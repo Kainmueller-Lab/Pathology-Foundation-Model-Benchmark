@@ -1,7 +1,8 @@
-from benchmark.augmentations import Augmenter
-import benchmark.custom_augmentations as Caug
 import kornia.augmentation as Kaug
 import torch
+
+import benchmark.augmentations.custom_augmentations as Caug
+from benchmark.augmentations.augmentations import Augmenter
 
 params = {
     "RandomHorizontalFlip": {"p": 0.5},

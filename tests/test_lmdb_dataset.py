@@ -1,7 +1,9 @@
-import unittest
 import os
+import unittest
+
 import numpy as np
-from benchmark.lmdb_dataset import LMDBDataset
+
+from benchmark.dataset.lmdb_dataset import LMDBDataset
 
 
 class TestLMDBDataset(unittest.TestCase):
@@ -58,7 +60,9 @@ class TestLMDBDataset(unittest.TestCase):
         expected_length = len(self.sample_names)
         actual_length = len(dataset)
         self.assertEqual(
-            actual_length, expected_length, f"Dataset length should be {expected_length}, got {actual_length}."
+            actual_length,
+            expected_length,
+            f"Dataset length should be {expected_length}, got {actual_length}.",
         )
 
         # Collect all sample names from the dataset
@@ -70,7 +74,9 @@ class TestLMDBDataset(unittest.TestCase):
 
         # Verify that the sample names match the expected sample names
         self.assertCountEqual(
-            dataset_sample_names, self.sample_names, "Sample names in dataset do not match expected sample names."
+            dataset_sample_names,
+            self.sample_names,
+            "Sample names in dataset do not match expected sample names.",
         )
 
     def test_filter_by_sample_names(self):
@@ -121,11 +127,19 @@ class TestLMDBDataset(unittest.TestCase):
         self.assertIsInstance(data["tile_name"], str, "'tile_name' should be a string.")
         self.assertIsInstance(data["sample_name"], str, "'sample_name' should be a string.")
         self.assertIsInstance(data["image"], np.ndarray, "'image' should be a NumPy array.")
-        self.assertIsInstance(data["semantic_mask"], np.ndarray, "'semantic_mask' should be a NumPy array.")
+        self.assertIsInstance(
+            data["semantic_mask"],
+            np.ndarray,
+            "'semantic_mask' should be a NumPy array.",
+        )
 
         # Check for optional 'instance_mask'
         if "instance_mask" in data:
-            self.assertIsInstance(data["instance_mask"], np.ndarray, "'instance_mask' should be a NumPy array.")
+            self.assertIsInstance(
+                data["instance_mask"],
+                np.ndarray,
+                "'instance_mask' should be a NumPy array.",
+            )
 
     def test_context_manager(self):
         """Test that the LMDB environment is closed properly."""

@@ -1,17 +1,18 @@
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
 )
-from benchmark.metric_utils import (
+
+from benchmark.utils.metric_utils import (
     accuracy,
+    confusion_matrix_func,
+    f1_score_class,
     precision,
     recall,
-    f1_score_class,
-    confusion_matrix_func,
 )
 
 
