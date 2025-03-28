@@ -1,9 +1,20 @@
+from enum import Enum
 import numpy as np
 
 from benchmark.utils.utils import get_height_width, to_tuple
 
 
-def center_pad_to_size(array, desired_shape):
+class PaddingType(Enum):
+    NONE = "none"
+    ZERO = "zero"
+    MIRROR = "reflect"
+    EDGE = "edge"
+
+    def __str__(self):
+        return self.value
+
+
+def center_pad_to_size(array, desired_shape, padding: PaddingType = PaddingType.NONE):
     """
     Center pad an array with zeros to reach the desired shape.
 
@@ -34,11 +45,13 @@ def center_pad_to_size(array, desired_shape):
         pad_after = total_pad - pad_before
         pad_widths.append((pad_before, pad_after))
 
-    padded_array = np.pad(array, pad_width=pad_widths, mode="constant", constant_values=0)
+    padded_array = np.pad(array, pad_width=pad_widths, mode=padding.value)
     return padded_array
 
 
-def transform_to_tiles(array, tile_size=224, renumber_instances=False):
+def transform_to_tiles(
+    array, tile_size: int = 224, renumber_instances: bool = False, padding: PaddingType = PaddingType.NONE
+):
     """
     Split an array into tiles of specified size, center-padded as needed.
 
@@ -70,10 +83,24 @@ def transform_to_tiles(array, tile_size=224, renumber_instances=False):
     tile_idx = 0
     for i in range(n_tiles_y):
         for j in range(n_tiles_x):
-            y_start = y_indices[i]
-            y_end = y_indices[i + 1]
-            x_start = x_indices[j]
-            x_end = x_indices[j + 1]
+            if padding != PaddingType.NONE:
+                y_start = y_indices[i]
+                y_end = y_indices[i + 1]
+                x_start = x_indices[j]
+                x_end = x_indices[j + 1]
+            else:
+                y_start = i * tile_size
+                y_end = (i + 1) * tile_size
+                x_start = j * tile_size
+                x_end = (j + 1) * tile_size
+
+                if y_end > height:
+                    y_end = height
+                    y_start = height - tile_size
+
+                if x_end > width:
+                    x_end = width
+                    x_start = width - tile_size
 
             # Extract the tile from the image or masks
             if len(array.shape) == 2:
@@ -81,8 +108,9 @@ def transform_to_tiles(array, tile_size=224, renumber_instances=False):
             else:
                 arr_tile = array[:, y_start:y_end, x_start:x_end]
 
-            # Center pad the tiles to the desired size
-            arr_tile = center_pad_to_size(arr_tile, (tile_size, tile_size))
+            if padding != PaddingType.NONE:
+                # Center pad the tiles to the desired size
+                arr_tile = center_pad_to_size(arr_tile, (tile_size, tile_size), padding=padding)
 
             if renumber_instances:
                 # Renumber the instances in the inst_tile

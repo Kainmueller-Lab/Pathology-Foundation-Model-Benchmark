@@ -7,13 +7,7 @@ import torch
 from skimage.measure import regionprops_table
 from tqdm import tqdm
 
-from benchmark.utils.metric_utils import (
-    accuracy,
-    confusion_matrix_func,
-    f1_score_class,
-    precision,
-    recall,
-)
+from benchmark.utils.metric_utils import accuracy, confusion_matrix_func, f1_score_class, precision, recall, mcc_score
 from benchmark.utils.utils import maybe_resize, save_imgs_for_debug
 
 
@@ -60,7 +54,9 @@ class Eval:
         else:
             self.fname = "evaluation_results.csv"
 
-    def compute_metrics(self, model, dataloader, device, save_preds=False, snap_dir=None):
+    def compute_metrics(
+        self, model, dataloader, device, save_preds=False, snap_dir=None, less_metrics=False, do_confmat=False
+    ):
         """
         Computes the metrics over the entire dataset.
 
@@ -132,6 +128,8 @@ class Eval:
             metrics = self.compute_metrics_instance_level(
                 y_pred=pred_df["pred_class"].values,
                 y_true=pred_df["groundtruth"].values,
+                less_metrics=less_metrics,
+                do_confmat=do_confmat,
             )
             return metrics
         else:
@@ -184,7 +182,7 @@ class Eval:
         pred_df = pd.merge(props_gt, props_pred, on="label", how="inner")
         return pred_df
 
-    def compute_metrics_instance_level(self, y_pred, y_true):
+    def compute_metrics_instance_level(self, y_pred, y_true, less_metrics=False, do_confmat=False):
         """
         Computes instance-level metrics.
 
@@ -204,10 +202,7 @@ class Eval:
         unique_classes = unique_classes[unique_classes != 0]
 
         # Calculate precision, recall, and F1 score per class
-        precision_scores = {}
-        recall_scores = {}
-        f1_scores = {}
-        accuracy_scores = {}
+        f1_scores, precision_scores, recall_scores, accuracy_scores = {}, {}, {}, {}
         classwise_metrics = {}
         for cls in unique_classes:
             class_name = self.label_dict[cls]
@@ -215,45 +210,48 @@ class Eval:
             recall_scores[class_name] = recall(y_true, y_pred, class_id=cls)
             f1_scores[class_name] = f1_score_class(y_true, y_pred, class_id=cls)
             accuracy_scores[class_name] = accuracy(y_true, y_pred, class_id=cls)
-            classwise_metrics[f"{class_name}/precision"] = precision_scores[class_name]
-            classwise_metrics[f"{class_name}/recall"] = recall_scores[class_name]
+
             classwise_metrics[f"{class_name}/f1_score"] = f1_scores[class_name]
-            classwise_metrics[f"{class_name}/accuracy"] = accuracy_scores[class_name]
+            if not less_metrics:
+                classwise_metrics[f"{class_name}/precision"] = precision_scores[class_name]
+                classwise_metrics[f"{class_name}/recall"] = recall_scores[class_name]
+                classwise_metrics[f"{class_name}/accuracy"] = accuracy_scores[class_name]
 
         # Calculate macro averages
-        metrics["precision_macro"] = np.mean(list(precision_scores.values()))
-        metrics["recall_macro"] = np.mean(list(recall_scores.values()))
         metrics["f1_score_macro"] = np.mean(list(f1_scores.values()))
-        metrics["accuracy_macro"] = np.mean(list(accuracy_scores.values()))
+        metrics["mcc_score"] = mcc_score(y_true, y_pred)
+        if not less_metrics:
+            metrics["precision_macro"] = np.mean(list(precision_scores.values()))
+            metrics["recall_macro"] = np.mean(list(recall_scores.values()))
+            metrics["accuracy_macro"] = np.mean(list(accuracy_scores.values()))
 
-        # Calculate micro averages
-        metrics["precision_micro"] = precision(y_true, y_pred, class_id=None)
-        metrics["recall_micro"] = recall(y_true, y_pred, class_id=None)
-        metrics["f1_score_micro"] = f1_score_class(y_true, y_pred, class_id=None)
-        metrics["accuracy_micro"] = accuracy(y_true, y_pred, class_id=None)
+            # Calculate micro averages
+            metrics["precision_micro"] = precision(y_true, y_pred, class_id=None)
+            metrics["recall_micro"] = recall(y_true, y_pred, class_id=None)
+            metrics["f1_score_micro"] = f1_score_class(y_true, y_pred, class_id=None)
+            metrics["accuracy_micro"] = accuracy(y_true, y_pred, class_id=None)
 
         # # Calculate confusion matrix
-        # labels = [self.label_dict[cls] for cls in unique_classes]
-        # conf_mat = confusion_matrix_func(y_true, y_pred, labels=unique_classes)
-        # # rename index and columns
-        # metrics["confusion_matrix"] = pd.DataFrame(
-        #     conf_mat,
-        #     index=labels,
-        #     columns=labels
-        # )
+        if do_confmat:
+            labels = [self.label_dict[cls] for cls in unique_classes]
+            confmat = confusion_matrix_func(y_true, y_pred, labels=unique_classes)
+            # # rename index and columns
+            confmat_df = pd.DataFrame(confmat, index=labels, columns=labels)
+            confmat_df.to_csv(os.path.join(self.save_dir, "confmat.csv"), index=False)
 
         if self.save_dir:
             # save metrics to csv and exclude all per class metrics before
-            cols = [
-                "precision_macro",
-                "recall_macro",
-                "f1_score_macro",
-                "accuracy_macro",
-                "precision_micro",
-                "recall_micro",
-                "f1_score_micro",
-                "accuracy_micro",
-            ]
+            cols = ["f1_score_macro", "mcc_score"]
+            if not less_metrics:
+                cols += [
+                    "precision_macro",
+                    "recall_macro",
+                    "accuracy_macro",
+                    "precision_micro",
+                    "recall_micro",
+                    "f1_score_micro",
+                    "accuracy_micro",
+                ]
             metrics_df = pd.DataFrame({k: metrics[k] for k in cols}, index=[0])
             classwise_metrics_df = pd.DataFrame(classwise_metrics, index=[0])
             metrics_df = pd.concat([metrics_df, classwise_metrics_df], axis=1)

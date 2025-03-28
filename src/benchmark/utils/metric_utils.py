@@ -1,11 +1,5 @@
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    confusion_matrix,
-)
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, matthews_corrcoef
 
 
 def accuracy(y_true, y_pred, class_id=None):
@@ -87,6 +81,20 @@ def f1_score_class(y_true, y_pred, class_id):
         average="micro",
         zero_division=0,
     )
+
+
+def mcc_score(y_true, y_pred):
+    """
+    Computes the MCC score for a specific class.
+
+    Args:
+        y_true (np.ndarray): True class labels.
+        y_pred (np.ndarray): Predicted class labels.
+
+    Returns:
+        float: MCC score for the specified class.
+    """
+    return matthews_corrcoef(y_true, y_pred)
 
 
 def confusion_matrix_func(y_true, y_pred, labels=None):

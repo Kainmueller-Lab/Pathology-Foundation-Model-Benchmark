@@ -36,6 +36,21 @@ torch.backends.cudnn.benchmark = True
 MAX_EARLY_STOPPING = 5000
 
 
+def set_missing_cfg_args(cfg):
+    if not hasattr(cfg, "early_stopping"):
+        cfg.early_stopping = MAX_EARLY_STOPPING
+    if not hasattr(cfg, "save_snapshots"):
+        cfg.save_snapshots = False
+    if not hasattr(cfg, "save_all_ckpts"):
+        cfg.save_all_ckpts = False
+    if not hasattr(cfg, "less_metrics"):
+        cfg.less_metrics = False
+    if not hasattr(cfg, "do_confmat"):
+        cfg.do_confmat = False
+    if not hasattr(cfg.model, "do_ms_aug"):
+        cfg.model.do_ms_aug = False
+
+
 def make_log_dirs(cfg, split="train"):
     """Prepare directories for writing training infos."""
     log_dir = os.path.join(cfg.experiment_path, cfg.experiment, split)
@@ -267,7 +282,13 @@ def train(cfg):
                 # validating
                 evaluater.save_dir = os.path.join(log_dir, "validation_results")
                 evaluater.fname = f"validation_metrics_step_{step}.csv"
-                logging_dict, classwise_dict = evaluater.compute_metrics(model, val_dataloader, device)
+                logging_dict, classwise_dict = evaluater.compute_metrics(
+                    model,
+                    val_dataloader,
+                    device,
+                    less_metrics=cfg.less_metrics,
+                    do_confmat=cfg.do_confmat,
+                )
                 logging_dict = {"validation/" + k: v for k, v in logging_dict.items()}
                 classwise_dict = {k + "_val": v for k, v in classwise_dict.items()}
                 logging_dict["train_loss"] = np.mean(loss_tmp) / float(WORLD_SIZE)
@@ -311,7 +332,13 @@ def train(cfg):
         model.load_state_dict(torch.load(best_model_path))
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
-        logging_dict, classwise_dict = evaluater.compute_metrics(model, test_dataloader, device)
+        logging_dict, classwise_dict = evaluater.compute_metrics(
+            model,
+            test_dataloader,
+            device,
+            less_metrics=cfg.less_metrics,
+            do_confmat=cfg.do_confmat,
+        )
     if logging:
         logging_dict["best_checkpoint_step"] = best_checkpoint_step
         logging_dict = {f"test/{k}": v for k, v in logging_dict.items()}
@@ -336,12 +363,5 @@ if __name__ == "__main__":
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
     print(f"Experiment name: {cfg.experiment}")
-    if not hasattr(cfg, "early_stopping"):
-        cfg.early_stopping = MAX_EARLY_STOPPING
-    if not hasattr(cfg, "save_snapshots"):
-        cfg.save_snapshots = False
-    if not hasattr(cfg, "save_all_ckpts"):
-        cfg.save_all_ckpts = False
-    if not hasattr(cfg.model, "do_ms_aug"):
-        cfg.model.do_ms_aug = False
+    set_missing_cfg_args(cfg)
     train(cfg)

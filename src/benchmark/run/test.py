@@ -84,7 +84,13 @@ def train(cfg):
         evaluater.save_dir = os.path.join(log_dir, "test_results")
         evaluater.fname = "test_metrics_best_model.csv"
         logging_dict, classwise_dict = evaluater.compute_metrics(
-            model, test_dataloader, device, save_preds=True, snap_dir=snap_dir
+            model,
+            test_dataloader,
+            device,
+            save_preds=True,
+            snap_dir=snap_dir,
+            less_metrics=cfg.less_metrics,
+            do_confmat=cfg.do_confmat,
         )
 
     if logging:
