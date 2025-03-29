@@ -38,6 +38,7 @@ def create_lmdb_database(
             inst_mask = dataset.get_instance_mask(idx).astype(np.uint16)
             semantic_mask = dataset.get_semantic_mask(idx).astype(np.uint16)
             sample_name = dataset.get_sample_name(idx)
+            sample_name = sample_name[: sample_name.find(".")]  # remove file extension
             img_tiles = transform_to_tiles(img, tile_size=tile_size, padding=padding)
             if inst_mask is not None:
                 inst_mask_tiles = transform_to_tiles(inst_mask, tile_size=tile_size)

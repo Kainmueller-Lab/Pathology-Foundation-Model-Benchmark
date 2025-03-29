@@ -27,6 +27,8 @@ from transformers import AutoImageProcessor, AutoModel
 
 # load the environment variables
 dotenv_path = Path(__file__).parents[3] / ".env"
+print(f"Loading environment variables from {dotenv_path}")
+assert dotenv_path.is_file(), "No .env file found"
 load_dotenv(dotenv_path=dotenv_path)
 HF_TOKEN = os.getenv("HF_TOKEN")
 

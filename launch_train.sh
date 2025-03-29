@@ -4,8 +4,8 @@
 #$ -o /home/jluesch/output_dir/log_$JOB_ID.out
 #$ -l gpu=1
 #$ -l cuda_memory=55G
-#$ -pe smp 2
-#$ -l m_mem_free=65G
+#$ -pe smp 2-4
+#$ -l m_mem_free=100G
 #$ -l h_rt=20:00:00
 #$ -A kainmueller
 

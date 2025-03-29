@@ -16,7 +16,7 @@ do_confmat: true
 dataset:
   name: "pannuke"
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/pannuke_lmdb_no_pad
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/train_test_val_split.csv
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/splits/train_test_val_split.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/pannuke/label_dict.json
   batch_size: 16
   uniform_class_sampling: True

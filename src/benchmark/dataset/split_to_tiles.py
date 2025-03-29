@@ -71,6 +71,9 @@ def transform_to_tiles(
     # Get the height and width of the image
     height, width = get_height_width(array)
 
+    if height < 2 * tile_size and width < 2 * tile_size:
+        return [array]
+
     # Decide on the number of tiles along each dimension
     n_tiles_y = int(np.ceil(height / tile_size))
     n_tiles_x = int(np.ceil(width / tile_size))
