@@ -4,6 +4,22 @@ Benchmarking the ability of pathology foundation models to do cell type classifi
 Assumes a .env file with the following variables:
 - `HF_TOKEN`: Huggingface API token to download models with access restrictions
 
+## Installation
+install the environment with:
+`conda env create -f env.yaml`
+
+## Running the Benchmark
+Once you have downloaded the dataset, and installed the required packages, the code can be run with the following command:
+
+### Slurm
+`sbatch launch_train_slurm.sh <pathg_to_config> <model_name>`
+
+### Grid Engine
+`qsub launch_train.sh <pathg_to_config> <model_name>`
+
+Example:
+`sbatch launch_train_slurm.sh configs/dpt_config.yaml uni2`
+
 
 ## Cell type classes
 The cell type classes are merged as follows:
