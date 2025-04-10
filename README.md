@@ -41,21 +41,135 @@ The cell type classes are merged as follows:
 
 
 
-Here are the more detailed results table:
-| Model         | Head      | Score     |
-|---------------|-----------|-----------|
-| HoverNext     | HoverNext | 0.938473  |
-| provgigapath  | SimpleSeg | 0.829691  |
-| uni           | SimpleSeg | 0.826109  |
-| phikonv2      | SimpleSeg | 0.745448  |
-| titan         | SimpleSeg | 0.800081  |
-| virchow2      | SimpleSeg | 0.837534  |
-| musk          | SimpleSeg | 0.744879  |
-| uni2          | SimpleSeg | 0.825901  |
-| uni2          | UNetR     | 0.945103  |
-| virchow2      | UNetR     | 0.943260  |
-| uni           | UNetR     | 0.933452  |
-| musk          | UNetR     | 0.929207  |
-| provgigapath  | UNetR     | 0.927416  |
-| titan         | UNetR     | 0.922186  |
-| phikonv2      | UNetR     | 0.926500  |
+Here are the more detailed results table on the PhenoCell dataset:
+| Model         | Head      | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.238   |
+| provgigapath  | SimpleSeg | 0.264   |
+| uni           | SimpleSeg | 0.263   |
+| phikonv2      | SimpleSeg | 0.243   |
+| titan         | SimpleSeg | 0.232   |
+| virchow2      | SimpleSeg | 0.286   |
+| musk          | SimpleSeg | 0.200   |
+| uni2          | SimpleSeg | 0.303   |
+| uni2          | UNetR     | 0.301   |
+| virchow2      | UNetR     | 0.295   |
+| uni           | UNetR     | 0.288   |
+| provgigapath  | UNetR     | 0.280   |
+| titan         | UNetR     | 0.264   |
+| phikonv2      | UNetR     | 0.280   |
+
+Arctique:
+| Model         | Head      | Score  |
+|---------------|-----------|--------|
+| HoverNext     | HoverNext | 0.938  |
+| provgigapath  | SimpleSeg | 0.830  |
+| uni           | SimpleSeg | 0.826  |
+| phikonv2      | SimpleSeg | 0.746  |
+| titan         | SimpleSeg | 0.800  |
+| virchow2      | SimpleSeg | 0.838  |
+| musk          | SimpleSeg | 0.745  |
+| uni2          | SimpleSeg | 0.826  |
+| uni2          | UNetR     | 0.945  |
+| virchow2      | UNetR     | 0.943  |
+| uni           | UNetR     | 0.934  |
+| musk          | UNetR     | 0.929  |
+| provgigapath  | UNetR     | 0.927  |
+| titan         | UNetR     | 0.922  |
+| phikonv2      | UNetR     | 0.927  |
+
+PanNuke:
+| Model         | Head      | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.784   |
+| provgigapath  | SimpleSeg | 0.714   |
+| uni           | SimpleSeg | 0.710   |
+| phikonv2      | SimpleSeg | 0.697   |
+| titan         | SimpleSeg | 0.691   |
+| virchow2      | SimpleSeg | 0.717   |
+| musk          | SimpleSeg | 0.639   |
+| uni2          | SimpleSeg | 0.726   |
+| virchow2      | UNetR     | 0.794   |
+| uni           | UNetR     | 0.792   |
+| provgigapath  | UNetR     | 0.791   |
+| uni2          | UNetR     | 0.785   |
+| titan         | UNetR     | 0.781   |
+| musk          | UNetR     | 0.766   |
+| phikonv2      | UNetR     | 0.797   |
+
+Lizard:
+| Dataset       | Model     | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.725   |
+| musk          | SimpleSeg | 0.571   |
+| phikonv2      | SimpleSeg | 0.607   |
+| provgigapath  | SimpleSeg | 0.655   |
+| titan         | SimpleSeg | 0.601   |
+| uni           | SimpleSeg | 0.636   |
+| uni2          | SimpleSeg | 0.684   |
+| virchow2      | SimpleSeg | 0.689   |
+| musk          | UNetR     | 0.722   |
+| phikonv2      | UNetR     | 0.697   |
+| provgigapath  | UNetR     | 0.697   |
+| titan         | UNetR     | 0.697   |
+| uni           | UNetR     | 0.716   |
+| uni2          | UNetR     | 0.729   |
+| virchow2      | UNetR     | 0.735   |
+
+Here are the detailed domain shift experiments:
+Lizard:
+| Dataset       | Model     | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.639   |
+| virchow2      | SimpleSeg | 0.614   |
+| uni2          | SimpleSeg | 0.608   |
+| uni           | SimpleSeg | 0.578   |
+| provgigapath  | SimpleSeg | 0.575   |
+| titan         | SimpleSeg | 0.553   |
+| phikonv2      | SimpleSeg | 0.549   |
+| musk          | SimpleSeg | 0.519   |
+| uni2          | UNetR     | 0.695   |
+| virchow2      | UNetR     | 0.670   |
+| musk          | UNetR     | 0.663   |
+| provgigapath  | UNetR     | 0.660   |
+| phikonv2      | UNetR     | 0.645   |
+| uni           | UNetR     | 0.643   |
+| titan         | UNetR     | 0.630   |
+
+PhenoCell DII vs CLR:
+| Dataset       | Model     | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.239   |
+| uni2          | UNetR     | 0.286   |
+| virchow2      | UNetR     | 0.266   |
+| provgigapath  | UNetR     | 0.261   |
+| phikonv2      | UNetR     | 0.256   |
+| uni           | UNetR     | 0.252   |
+| titan         | UNetR     | 0.239   |
+| musk          | UNetR     | 0.237   |
+
+PhenoCell MSI vs MSS:
+| Dataset       | Model     | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.230   |
+| virchow2      | UNetR     | 0.288   |
+| uni2          | UNetR     | 0.284   |
+| provgigapath  | UNetR     | 0.265   |
+| phikonv2      | UNetR     | 0.263   |
+| titan         | UNetR     | 0.243   |
+| uni           | UNetR     | 0.233   |
+| musk          | UNetR     | 0.234   |
+
+PhenoCell stage 3 vs stage 4:
+| Dataset       | Model     | Score   |
+|---------------|-----------|---------|
+| HoverNext     | HoverNext | 0.209   |
+| uni2          | UNetR     | 0.251   |
+| uni           | UNetR     | 0.233   |
+| phikonv2      | UNetR     | 0.230   |
+| provgigapath  | UNetR     | 0.223   |
+| virchow2      | UNetR     | 0.222   |
+| titan         | UNetR     | 0.222   |
+| musk          | UNetR     | 0.232   |
+
+
