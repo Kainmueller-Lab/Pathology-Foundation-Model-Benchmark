@@ -5,6 +5,7 @@ Assumes a .env file with the following variables:
 - `HF_TOKEN`: Huggingface API token to download models with access restrictions
 
 
+
 The cell type classes are merged as follows:
 
 | Cell Type                              | Category                |
@@ -42,22 +43,22 @@ The cell type classes are merged as follows:
 
 
 Here are the more detailed results table on the PhenoCell dataset:
-| Model         | Head      | Score   |
-|---------------|-----------|---------|
-| HoverNext     | HoverNext | 0.238   |
-| provgigapath  | SimpleSeg | 0.264   |
-| uni           | SimpleSeg | 0.263   |
-| phikonv2      | SimpleSeg | 0.243   |
-| titan         | SimpleSeg | 0.232   |
-| virchow2      | SimpleSeg | 0.286   |
-| musk          | SimpleSeg | 0.200   |
-| uni2          | SimpleSeg | 0.303   |
-| uni2          | UNetR     | 0.301   |
-| virchow2      | UNetR     | 0.295   |
-| uni           | UNetR     | 0.288   |
-| provgigapath  | UNetR     | 0.280   |
-| titan         | UNetR     | 0.264   |
-| phikonv2      | UNetR     | 0.280   |
+| Dataset   | Model        | Head      | Score   |
+|-----------|--------------|-----------|---------|
+| PhenoCell | SimpleSeg    | musk      | 0.200   |
+| PhenoCell | SimpleSeg    | titan     | 0.232   |
+| PhenoCell | HoverNext    | HoverNext | 0.238   |
+| PhenoCell | SimpleSeg    | phikonv2  | 0.243   |
+| PhenoCell | UNetR        | titan     | 0.264   |
+| PhenoCell | SimpleSeg    | provgigapath | 0.264   |
+| PhenoCell | UNetR        | phikonv2  | 0.280   |
+| PhenoCell | UNetR        | provgigapath | 0.280   |
+| PhenoCell | UNetR        | uni       | 0.288   |
+| PhenoCell | SimpleSeg    | virchow2  | 0.286   |
+| PhenoCell | UNetR        | virchow2  | 0.295   |
+| PhenoCell | UNetR        | uni2      | 0.301   |
+| PhenoCell | SimpleSeg    | uni2      | 0.303   |
+
 
 Arctique:
 | Model         | Head      | Score  |
