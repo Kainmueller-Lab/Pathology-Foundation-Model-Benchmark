@@ -5,7 +5,7 @@ Assumes a .env file with the following variables:
 - `HF_TOKEN`: Huggingface API token to download models with access restrictions
 
 
-
+## Cell type classes
 The cell type classes are merged as follows:
 
 | Cell Type                              | Category                 |
@@ -41,8 +41,9 @@ The cell type classes are merged as follows:
 | immune cells / vasculature             | Other cells              |
 
 
-
-Here are the more detailed results table on the PhenoCell dataset:
+## Results
+Here are the more detailed result tables:
+### PhenoCell dataset:
 | Model        | Head        | Score   |
 |--------------|-------------|---------|
 | HoverNext    | N/A         | 0.238   |
@@ -59,7 +60,7 @@ Here are the more detailed results table on the PhenoCell dataset:
 | virchow2     | UNetR       | 0.295   |
 | uni2         | UNetR       | 0.301   |
 
-Arctique:
+### Arctique:
 | Model         | Head      | Score  |
 |---------------|-----------|--------|
 | HoverNext     | HoverNext | 0.938  |
@@ -78,7 +79,7 @@ Arctique:
 | virchow2      | UNetR     | 0.943  |
 | uni2          | UNetR     | 0.945  |
 
-PanNuke:
+### PanNuke:
 | Model         | Head      | Score   |
 |---------------|-----------|---------|
 | HoverNext     | HoverNext | 0.784   |
@@ -97,7 +98,7 @@ PanNuke:
 | virchow2      | UNetR     | 0.794   |
 | phikonv2      | UNetR     | 0.797   |
 
-Lizard:
+### Lizard:
 | Dataset       | Model     | Score   |
 |---------------|-----------|---------|
 | HoverNext     | HoverNext | 0.725   |
@@ -116,8 +117,9 @@ Lizard:
 | virchow2      | UNetR     | 0.735   |
 | uni2          | UNetR     | 0.729   |
 
-Here are the detailed domain shift experiments:
-Lizard:
+
+## Domain shift experiments:
+### Lizard:
 | Dataset       | Model     | Score   |
 |---------------|-----------|---------|
 | HoverNext     | HoverNext | 0.639   |
@@ -136,8 +138,7 @@ Lizard:
 | virchow2      | UNetR     | 0.670   |
 | uni2          | UNetR     | 0.695   |
 
-
-PhenoCell DII vs CLR:
+### PhenoCell DII vs CLR:
 | Dataset      | Model     | Score   |
 |--------------|-----------|---------|
 | HoverNext    | HoverNext | 0.239   |
@@ -149,8 +150,7 @@ PhenoCell DII vs CLR:
 | virchow2     | UNetR     | 0.266   |
 | uni2         | UNetR     | 0.286   |
 
-
-PhenoCell MSI vs MSS:
+### PhenoCell MSI vs MSS:
 | Dataset      | Model     | Score   |
 |--------------|-----------|---------|
 | HoverNext    | HoverNext | 0.230   |
@@ -162,8 +162,7 @@ PhenoCell MSI vs MSS:
 | uni2         | UNetR     | 0.284   |
 | virchow2     | UNetR     | 0.288   |
 
-
-PhenoCell stage 3 vs stage 4:
+### PhenoCell stage 3 vs stage 4:
 | Dataset      | Model     | Score   |
 |--------------|-----------|---------|
 | HoverNext    | HoverNext | 0.209   |
