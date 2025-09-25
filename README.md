@@ -8,6 +8,10 @@ Assumes a .env file with the following variables:
 install the environment with:
 `conda env create -f env.yaml`
 
+## Data 
+The data can be downloaded via huggingface:
+https://huggingface.co/datasets/Kainmueller-Lab/phenobench
+
 ## Running the Benchmark
 Once you have downloaded the dataset, and installed the required packages, the code can be run with the following command:
 
