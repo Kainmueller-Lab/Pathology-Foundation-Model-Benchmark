@@ -1,5 +1,11 @@
 # Pathology-Foundation-Model-Benchmark
+
+
 Benchmarking the ability of pathology foundation models to do cell type classification
+
+This repository corresponds to the benchmarking code of the MICCAI 2025 paper:
+
+Lüscher, J., Koreuber, N., Franzen, J., Reith, F.H., Winklmayr, C., Baumann, E., Schürch, C.M., Kainmüller, D. and Rumberger, J.L., 2025, September. Pathocellbench: A comprehensive benchmark for cell phenotyping. In _International Conference on Medical Image Computing and Computer-Assisted Intervention_ (pp. 411-420). Cham: Springer Nature Switzerland.; https://link.springer.com/chapter/10.1007/978-3-032-04981-0_39
 
 Assumes a .env file with the following variables:
 - `HF_TOKEN`: Huggingface API token to download models with access restrictions
@@ -11,6 +17,8 @@ install the environment with:
 ## Data 
 The data can be downloaded via huggingface:
 https://huggingface.co/datasets/Kainmueller-Lab/phenobench
+
+The dataloaders can be found in the following repository: https://github.com/Kainmueller-Lab/Bio-Image-Datasets
 
 ## Running the Benchmark
 Once you have downloaded the dataset, and installed the required packages, the code can be run with the following command:
