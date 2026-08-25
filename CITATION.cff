@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below and this software release."
+title: "Pathology-Foundation-Model-Benchmark"
+version: "0.0.1"
+authors:
+  - family-names: Lüscher
+    given-names: Jérôme
+  - family-names: Koreuber
+    given-names: Nora
+  - family-names: Franzen
+    given-names: Jannik
+  - family-names: Reith
+    given-names: Fabian H.
+  - family-names: Winklmayr
+    given-names: Claudia
+  - family-names: Baumann
+    given-names: Elias
+  - family-names: Schürch
+    given-names: Christian M.
+  - family-names: Kainmüller
+    given-names: Dagmar
+  - family-names: Rumberger
+    given-names: Josef Lorenz
+
+preferred-citation:
+  type: inproceedings
+  title: "Pathocellbench: A comprehensive benchmark for cell phenotyping."
+  authors:
+    - family-names: Lüscher
+      given-names: Jérôme
+    - family-names: Koreuber
+      given-names: Nora
+    - family-names: Franzen
+      given-names: Jannik
+    - family-names: Reith
+      given-names: Fabian H.
+    - family-names: Winklmayr
+      given-names: Claudia
+    - family-names: Baumann
+      given-names: Elias
+    - family-names: Schürch
+      given-names: Christian M.
+    - family-names: Kainmüller
+      given-names: Dagmar
+    - family-names: Rumberger
+      given-names: Josef Lorenz
+  booktitle: "International Conference on Medical Image Computing and Computer-Assisted Intervention"
+  pages: "411-420"
+  publisher: "Springer Nature Switzerland"
+  address: "Cham"
+  year: 2025
+
+repository-code: "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
+url: "https://github.com/Kainmueller-Lab/Pathology-Foundation-Model-Benchmark"
