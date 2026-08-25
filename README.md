@@ -14,6 +14,13 @@ Assumes a .env file with the following variables:
 install the environment with:
 `conda env create -f env.yaml`
 
+## GPU requirements
+
+This project is designed to run training and large-model evaluation on NVIDIA GPUs and HPC clusters. Minimal requirements and recommendations:
+
+- **CUDA / PyTorch**: Built and tested with CUDA 11.8-compatible PyTorch (see `pyproject.toml` supplemental wheel for `cu118`). Install a PyTorch build that matches your system's CUDA runtime (CUDA 11.8 recommended).
+- **NVIDIA drivers & libraries**: NVIDIA driver compatible with CUDA 11.8, cuDNN and NCCL installed on the system (or available via container image).
+
 ## Data 
 The data can be downloaded via huggingface:
 https://huggingface.co/datasets/Kainmueller-Lab/phenobench
