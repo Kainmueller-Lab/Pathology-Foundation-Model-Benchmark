@@ -11,8 +11,16 @@ Assumes a .env file with the following variables:
 - `HF_TOKEN`: Huggingface API token to download models with access restrictions
 
 ## Installation
-install the environment with:
-`conda env create -f env.yaml`
+install the project with:
+```conda create -n <myenv> python=3.10 pip
+conda activate <myenv>
+pip install -e .```
+
+## Data 
+The data can be downloaded via huggingface:
+https://huggingface.co/datasets/Kainmueller-Lab/phenobench
+
+The dataloaders can be found in the following repository, which is already included in this repository as a dependency: https://github.com/Kainmueller-Lab/Bio-Image-Datasets
 
 ## GPU requirements
 
@@ -20,12 +28,6 @@ This project is designed to run training and large-model evaluation on NVIDIA GP
 
 - **CUDA / PyTorch**: Built and tested with CUDA 11.8-compatible PyTorch (see `pyproject.toml` supplemental wheel for `cu118`). Install a PyTorch build that matches your system's CUDA runtime (CUDA 11.8 recommended).
 - **NVIDIA drivers & libraries**: NVIDIA driver compatible with CUDA 11.8, cuDNN and NCCL installed on the system (or available via container image).
-
-## Data 
-The data can be downloaded via huggingface:
-https://huggingface.co/datasets/Kainmueller-Lab/phenobench
-
-The dataloaders can be found in the following repository: https://github.com/Kainmueller-Lab/Bio-Image-Datasets
 
 ## Running the Benchmark
 Once you have downloaded the dataset, and installed the required packages, the code can be run with the following command:
