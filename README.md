@@ -12,9 +12,11 @@ Assumes a .env file with the following variables:
 
 ## Installation
 install the project with:
-```conda create -n <myenv> python=3.10 pip
+```bash
+conda create -n <myenv> python=3.10 pip
 conda activate <myenv>
-pip install -e .```
+pip install -e .
+```
 
 ## Data 
 The data can be downloaded via huggingface:
