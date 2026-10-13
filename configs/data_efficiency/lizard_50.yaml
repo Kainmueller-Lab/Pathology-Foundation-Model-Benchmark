@@ -13,7 +13,7 @@ save_all_ckpts: false # watch out for memory
 dataset:
   name: 'lizard'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/lizard_tiled_lmdb/
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/data_efficiency_splits/split_50_percent_train.csv
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/splits/data_efficiency_splits/split_50_percent_train_tile_level.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/lizard_dataset/label_dict.json
   batch_size: 64
   uniform_class_sampling: True

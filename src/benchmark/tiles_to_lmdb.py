@@ -15,6 +15,7 @@ from bio_image_datasets.pannuke_dataset import PanNukeDataset
 from bio_image_datasets.consep_dataset import ConSePDataset
 from bio_image_datasets.schuerch_dataset import SchuerchDataset
 from bio_image_datasets.segpath_dataset import SegPath
+from bio_image_datasets.pathocell2_dataset import PathoCell2Dataset
 
 
 def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
@@ -98,8 +99,8 @@ if __name__ == "__main__":
         type=str,
         # default="lizard",
         default="schuerch",
-        choices=["arctique", "consep", "lizard", "pannuke", "schuerch", "segpath"],
-        help="Dataset to use. Options are: arctique, consep, lizard, pannuke, schuerch, segpath.",
+        choices=["arctique", "consep", "lizard", "pannuke", "schuerch", "segpath", "pathocell2"],
+        help="Dataset to use. Options are: arctique, consep, lizard, pannuke, schuerch, segpath, pathocell2.",
     )
     parser.add_argument(
         "--map_size",
@@ -125,6 +126,7 @@ if __name__ == "__main__":
         "pannuke": PanNukeDataset,
         "schuerch": SchuerchDataset,
         "segpath": SegPath,
+        "pathocell2": PathoCell2Dataset
     }
 
     # Instantiate the dataset based on the provided argument
@@ -133,3 +135,6 @@ if __name__ == "__main__":
 
     # Create LMDB database
     create_lmdb_database(dataset, lmdb_path=args.output_path, tile_size=args.tile_size, map_size=args.map_size)
+
+
+# python src/benchmark/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/jannik/pathocellv2_annot/data/phenocell/1-1/ --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2

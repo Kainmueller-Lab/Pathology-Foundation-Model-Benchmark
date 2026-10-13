@@ -310,12 +310,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument("--job_id", type=int, default=0)
-    parser.add_argument("--model_name", type=str, default="uni")
+    parser.add_argument("--model_name", type=str)
+    parser.add_argument("--batch_size", type=int)
 
     args = parser.parse_args()
 
     cfg = OmegaConf.load(args.config)
-    cfg.model.backbone = args.model_name
+    if args.batch_size is not None:
+        cfg.dataset.batch_size = args.batch_size
+    if args.model_name is not None:
+        cfg.model.backbone = args.model_name
     cfg.experiment = (
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
@@ -329,3 +333,5 @@ if __name__ == "__main__":
     if not hasattr(cfg.model, "do_ms_aug"):
         cfg.model.do_ms_aug = False
     train(cfg)
+
+# python src/benchmark/train.py --config /fast/AG_Kainmueller/nkoreub/Pathology-Foundation-Model-Benchmark/configs/data_efficiency/schuerch_01.yaml --model_name uni2 --batch_size 64

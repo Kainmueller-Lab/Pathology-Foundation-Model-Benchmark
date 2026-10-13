@@ -3,17 +3,18 @@ experiment: Data_effiency_05
 experiment_path: experiments
 training_steps: 30000
 log_interval: 10
-val_interval: 200
+val_interval: 50
 multiprocessing: true
 num_workers: 4
 seed: 42
 primary_metric: f1_score_macro
 save_all_ckpts: false # watch out for memory
+early_stopping: 1200
 
 dataset:
   name: 'schuerch'
   path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/lmdb
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/data_efficiency_splits/split_5_percent_train.csv
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/splits/data_efficiency_splits/split_5_percent_train_tile_level.csv
   label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/schuerch_dataset_lmdb/label_dict.json
   batch_size: 64
   uniform_class_sampling: True
@@ -26,7 +27,7 @@ model:
 optimizer:
   name: AdamW
   params:
-    lr: 3e-5
+    lr: 3e-6
     weight_decay: 0.03
   warmup_steps: 1000
 

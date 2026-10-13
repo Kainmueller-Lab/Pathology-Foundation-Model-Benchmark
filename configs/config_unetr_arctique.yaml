@@ -16,9 +16,9 @@ dataset:
   batch_size: 64
   uniform_class_sampling: True
   sample_excluded_classes: False
-  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/arctique_lmdb/
-  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/arctique/train_test_val_split.csv
-  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique_dataset/label_dict.json
+  path: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique/arctique/arctique_lmdb/
+  split: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique/splits/train_test_val_split.csv
+  label_dict: /fast/AG_Kainmueller/data/patho_foundation_model_bench_data/arctique/label_dict.json
   
 model:
   model_wrapper: UnetR
