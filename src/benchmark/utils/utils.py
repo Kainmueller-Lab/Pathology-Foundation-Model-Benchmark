@@ -248,23 +248,42 @@ def get_weighted_sampler(ds, classes):
     count_list = []
     for sample in ds:
         semantic_mask = sample["semantic_mask"]
-        tmp_list = []
-        for c in classes:
-            tmp_list.append(np.count_nonzero(semantic_mask == c))  # sum of individual classes for a sample
+        tmp_list = [
+            np.count_nonzero(semantic_mask == c)
+            for c in classes
+        ]
         count_list.append(np.stack(tmp_list))
 
-    counts = np.stack(count_list)  # n_samples x classes
-    sampling_weights = np.divide(
+    counts = np.stack(count_list)  # (n_samples, n_classes)
+    class_totals = counts.sum(axis=0)
+
+    # Keep weights at zero for classes absent from the entire dataset.
+    sampling_weights = np.zeros_like(counts, dtype=np.float64)
+
+    np.divide(
         counts,
-        counts.sum(0)[np.newaxis, ...],
-        where=counts.sum(0)[np.newaxis, ...] != 0,
-    )  # n_samples x classes / 1 x classes = n_samples x classes
-    sampling_weights = sampling_weights.sum(1)  # n_samples
+        class_totals[np.newaxis, :],
+        out=sampling_weights,
+        where=class_totals[np.newaxis, :] != 0,
+    )
+
+    sampling_weights = sampling_weights.sum(axis=1)
+
+    # Validate the resulting distribution.
+    assert np.isfinite(sampling_weights).all(), "Weights contain NaN or Inf"
+    assert (sampling_weights >= 0).all(), "Weights contain negative values"
+    assert sampling_weights.sum() > 0, "All sampling weights are zero"
+
     sampler = torch.utils.data.WeightedRandomSampler(
-        torch.from_numpy(sampling_weights),
+        weights=torch.as_tensor(sampling_weights, dtype=torch.double),
         num_samples=len(sampling_weights),
         replacement=True,
     )
+
+    print("MIN SAMPLER WEIGHTS:", sampling_weights.min())
+    print("MAX SAMPLER WEIGHTS:", sampling_weights.max())
+    print("ZERO-WEIGHT SAMPLES:", np.count_nonzero(sampling_weights == 0))
+
     return sampler
 
 

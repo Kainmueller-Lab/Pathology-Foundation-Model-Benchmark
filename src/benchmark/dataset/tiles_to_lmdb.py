@@ -1,22 +1,26 @@
-import argparse
 import os
-import pickle
-
-import fastremap
 import lmdb
-from bio_image_datasets.arctique_dataset import ArctiqueDataset
-from bio_image_datasets.consep_dataset import ConSePDataset
-from bio_image_datasets.lizard_dataset import LizardDataset
-from bio_image_datasets.pannuke_dataset import PanNukeDataset
-from bio_image_datasets.schuerch_dataset import SchuerchDataset
-from bio_image_datasets.segpath_dataset import SegPath
+import pickle
+import fastremap
+import argparse
+
 from tqdm import tqdm
+import numpy as np
 
 from benchmark.dataset.split_to_tiles import transform_to_tiles
 
+from bio_image_datasets.arctique_dataset import ArctiqueDataset
+from bio_image_datasets.lizard_dataset import LizardDataset
+from bio_image_datasets.pannuke_dataset import PanNukeDataset
+from bio_image_datasets.consep_dataset import ConSePDataset
+from bio_image_datasets.schuerch_dataset import SchuerchDataset
+from bio_image_datasets.segpath_dataset import SegPath
+from bio_image_datasets.pathocell2_dataset import PathoCell2Dataset
+
 
 def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
-    """Create an LMDB database for a dataset.
+    """
+    Create an LMDB database for a dataset
 
     Args:
         dataset: Instance of a dataset.
@@ -24,6 +28,8 @@ def create_lmdb_database(dataset, lmdb_path, tile_size=224, map_size=2**37):
         tile_size: The size of the tiles to create.
         map_size: The maximum size of the LMDB map. Use ~100GB as a default.
     """
+
+    # Create the LMDB environment
     env = lmdb.open(lmdb_path, map_size=map_size)
 
     tile_idx = 0  # Global tile index for keys
@@ -93,8 +99,8 @@ if __name__ == "__main__":
         type=str,
         # default="lizard",
         default="schuerch",
-        choices=["arctique", "consep", "lizard", "pannuke", "schuerch", "segpath"],
-        help="Dataset to use. Options are: arctique, consep, lizard, pannuke, schuerch, segpath.",
+        choices=["arctique", "consep", "lizard", "pannuke", "schuerch", "segpath", "pathocell2"],
+        help="Dataset to use. Options are: arctique, consep, lizard, pannuke, schuerch, segpath, pathocell2.",
     )
     parser.add_argument(
         "--map_size",
@@ -120,6 +126,7 @@ if __name__ == "__main__":
         "pannuke": PanNukeDataset,
         "schuerch": SchuerchDataset,
         "segpath": SegPath,
+        "pathocell2": PathoCell2Dataset
     }
 
     # Instantiate the dataset based on the provided argument

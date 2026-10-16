@@ -221,7 +221,7 @@ class DecoderBlock(nn.Module):
             out_channels,
             kernel_size=3,
             padding=1,
-            use_batchnorm=use_batchnorm,
+            use_norm=use_batchnorm,
         )
         self.attention1 = md.Attention(attention_type, in_channels=in_channels + skip_channels)
         self.conv2 = md.Conv2dReLU(
@@ -229,12 +229,12 @@ class DecoderBlock(nn.Module):
             out_channels,
             kernel_size=3,
             padding=1,
-            use_batchnorm=use_batchnorm,
+            use_norm=use_batchnorm,
         )
         self.attention2 = md.Attention(attention_type, in_channels=out_channels)
 
     def forward(self, x, skip=None):
-        x = F.interpolate(x, scale_factor=2, mode="nearest", align_corners=False)
+        x = F.interpolate(x, scale_factor=2, mode="nearest")
         if skip is not None:
             x = torch.cat([x, skip], dim=1)
             x = self.attention1(x)
@@ -251,14 +251,14 @@ class CenterBlock(nn.Sequential):
             out_channels,
             kernel_size=3,
             padding=1,
-            use_batchnorm=use_batchnorm,
+            use_norm=use_batchnorm,
         )
         conv2 = md.Conv2dReLU(
             out_channels,
             out_channels,
             kernel_size=3,
             padding=1,
-            use_batchnorm=use_batchnorm,
+            use_norm=use_batchnorm,
         )
         super().__init__(conv1, conv2)
 

@@ -326,12 +326,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument("--job_id", type=int, default=0)
-    parser.add_argument("--model_name", type=str, default="uni")
+    parser.add_argument("--model_name", required=False, type=str)
 
     args = parser.parse_args()
 
     cfg = OmegaConf.load(args.config)
-    cfg.model.backbone = args.model_name
+    if args.model_name is not None:
+        cfg.model.backbone = args.model_name
     cfg.experiment = (
         f"{cfg.experiment}_{cfg.model.backbone}_{datetime.now().strftime('%d%m_%H%M')}_{cfg.dataset.name}_{args.job_id}"
     )
