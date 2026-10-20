@@ -209,7 +209,7 @@ class UnetR(nn.Module):
             logits: Output logits of shape (b, num_classes, h, w)
         """
         # Transform
-        if self.model_name == "phikonv2":
+        if self.model_name in {"phikonv2", "dinov3"}:
             x = self.transform(x, return_tensors="pt")["pixel_values"]
             x = x.cuda()
         else:
@@ -221,15 +221,17 @@ class UnetR(nn.Module):
         else:
             patch_embeddings = self.model(x)  # output shape (b, d, p, p) where b=batch_size, d=hidden_dim, p=patch_size
 
-        if self.model_name == "phikonv2":
+        if self.model_name in {"phikonv2", "dinov3"}:
             patch_embeddings = patch_embeddings["hidden_states"][-4:]
 
-        if self.model_name in ["phikonv2", "titan", "musk"]:
+        if self.model_name in ["phikonv2", "dinov3", "titan", "musk"]:
             reshaped_embed = []
+            num_register_tokens = getattr(self.model.config, "num_register_tokens", 0)
             for layer in patch_embeddings:
+                patch_tokens = layer[:, 1 + num_register_tokens :, :] if self.model_name == "dinov3" else layer[:, 1:, :]
                 reshaped_embed.append(
                     einops.rearrange(
-                        layer[:, 1:, :],
+                        patch_tokens,
                         "b (p1 p2) d -> b d p1 p2",
                         p1=self.image_size // self.patch_size,
                         p2=self.image_size // self.patch_size,

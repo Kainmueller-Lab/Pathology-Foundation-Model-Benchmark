@@ -76,7 +76,7 @@ class SimpleSegmentationModel(torch.nn.Module):
             logits: Output logits of shape (b, num_classes, h, w)
         """
         b, c, h, w = x.shape
-        if self.model_name == "phikonv2":
+        if self.model_name in {"phikonv2", "dinov3"}:
             x = self.transform(x, return_tensors="pt")["pixel_values"]
         else:
             x = self.transform(x)
@@ -366,7 +366,43 @@ def load_model_and_transform(
                 )
                 .permute(0, 3, 1, 2)
             )
+    elif model_name == "dinov3":
+        model_cfg = OmegaConf.load("configs/models/dinov3.yaml")
+        model = AutoModel.from_pretrained(
+            model_cfg.url,
+            trust_remote_code=True,
+            output_hidden_states=features_only,
+            torch_dtype=torch.float32,
+        )
+        num_register_tokens = getattr(model.config, "num_register_tokens", 0)
 
+        if not features_only:
+            model.forward_patches = (
+                lambda x: model(x.to(next(model.parameters()).device, dtype=torch.float32))
+                .last_hidden_state[:, 1 + num_register_tokens :, :]
+                .reshape(
+                    x.shape[0],
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    int(model_cfg.img_size / model_cfg.patch_size),
+                    -1,
+                )
+                .permute(0, 3, 1, 2)
+            )
+        else:
+            model.forward_patches = (
+                lambda x: [
+                    layer[:, 1 + num_register_tokens :, :].reshape(
+                        x.shape[0],
+                        int(model_cfg.img_size / model_cfg.patch_size),
+                        int(model_cfg.img_size / model_cfg.patch_size),
+                        -1,
+                    ).permute(0, 3, 1, 2)
+                    for layer in model(x.to(next(model.parameters()).device, dtype=torch.float32), output_hidden_states=True)
+                    .hidden_states[-4:]
+                ]
+            )
+
+        transform = AutoImageProcessor.from_pretrained(model_cfg.url, use_fast=True, do_rescale=False)
     elif model_name == "mock":
         patch_size, img_size = 14, 224
         model_dim = 1024
