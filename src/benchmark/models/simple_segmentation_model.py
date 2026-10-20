@@ -277,6 +277,27 @@ def load_model_and_transform(
             .permute(0, 3, 1, 2)
         )
         transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
+    elif model_name == "hoptimus1":
+        model_cfg = OmegaConf.load("configs/models/h-optimus-1.yaml")
+        model = timm.create_model(
+            f"hf_hub:{model_cfg.url}",
+            pretrained=model_cfg.pretrained,
+            init_values=model_cfg.init_values,
+            dynamic_img_size=model_cfg.dynamic_img_size,
+            features_only=features_only,
+            out_indices=out_indices,
+        )
+        model.forward_patches = (
+            lambda x: model.forward_features(x)[:, 1:, :]
+            .reshape(
+                x.shape[0],
+                int(model_cfg.img_size / model_cfg.patch_size),
+                int(model_cfg.img_size / model_cfg.patch_size),
+                -1,
+            )
+            .permute(0, 3, 1, 2)
+        )
+        transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
     elif model_name == "titan":
         model_cfg = OmegaConf.load("configs/models/titan.yaml")
         titan = AutoModel.from_pretrained(model_cfg.url, trust_remote_code=True, output_hidden_states=features_only)
