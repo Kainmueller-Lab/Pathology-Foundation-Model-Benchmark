@@ -16,13 +16,13 @@ dataset:
   path: /fast/AG_Kainmueller/data/pathocell_v2/lmdb_nuclei
   split: /fast/AG_Kainmueller/data/pathocell_v2/splits/pathocell_dataset_split.csv
   label_dict: /fast/AG_Kainmueller/data/pathocell_v2/label_dict.json
-  batch_size: 32
+  batch_size: 32 #24 for h-optimus-1
   uniform_class_sampling: True
   sample_excluded_classes: False
 
 model:
   model_wrapper: UnetR
-  #backbone: musk #provgigapath, uni, uni2, musk, titan, virchow2, phikonv2
+  #backbone: musk provgigapath, uni, uni2, musk, titan, virchow2, phikonv2, h-optimus-1, dinov3
   unfreeze_backbone: false
 
 optimizer:
