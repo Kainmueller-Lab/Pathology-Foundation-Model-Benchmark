@@ -131,7 +131,14 @@ if __name__ == "__main__":
 
     # Instantiate the dataset based on the provided argument
     dataset_class = dataset_mapping[args.dataset]
-    dataset = dataset_class(local_path=args.local_path)
+    if args.dataset == 'pathocell2':
+        dataset = dataset_class(
+            local_path=args.local_path,
+            original_he_sample_names=["reg053_B", "reg065_B", "reg065_B"], # leave these out because of faulty registration
+            registered=True,
+        )
+    else:
+        dataset = dataset_class(local_path=args.local_path)
 
     # Create LMDB database
     create_lmdb_database(
@@ -140,3 +147,5 @@ if __name__ == "__main__":
         tile_size=args.tile_size,
         map_size=args.map_size,
     )
+
+    # python src/benchmark/dataset/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/data/pathocell_v2/1-1/ --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2
