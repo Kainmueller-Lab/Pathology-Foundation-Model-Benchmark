@@ -53,6 +53,13 @@ class LMDBDataset(Dataset):
         include_keys = []
 
         with env.begin(write=False) as txn:
+
+            include_sample_names = (
+                {s.lower() for s in self.include_sample_names}
+                if self.include_sample_names is not None
+                else None
+            )
+
             for key, value in txn.cursor():
                 data = pickle.loads(value)
 

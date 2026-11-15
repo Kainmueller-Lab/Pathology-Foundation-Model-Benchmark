@@ -148,4 +148,4 @@ if __name__ == "__main__":
         map_size=args.map_size,
     )
 
-    # python src/benchmark/dataset/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/data/pathocell_v2/1-1/ --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2
+    # python src/benchmark/dataset/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/jannik/pathocellv2_annot/data/phenocell/1-1 --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2
