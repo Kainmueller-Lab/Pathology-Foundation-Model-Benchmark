@@ -134,6 +134,7 @@ if __name__ == "__main__":
     if args.dataset == 'pathocell2':
         dataset = dataset_class(
             local_path=args.local_path,
+            version = 'version_2016_11_15', # <--- this is version with cells of confidence 10
             original_he_sample_names=["reg053_B", "reg065_B", "reg065_B"], # leave these out because of faulty registration
             registered=True,
         )
@@ -148,4 +149,4 @@ if __name__ == "__main__":
         map_size=args.map_size,
     )
 
-    # python src/benchmark/dataset/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/jannik/pathocellv2_annot/data/phenocell/1-1 --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2
+    # python rc/benchmark/dataset/tiles_to_lmdb.py --local_path /fast/AG_Kainmueller/jannik/pathocellv2_annot/data/phenocell/1-1 --output_path /fast/AG_Kainmueller/data/pathocell_v2/lmdb --dataset pathocell2

@@ -54,6 +54,13 @@ class LMDBDataset(Dataset):
 
         with env.begin(write=False) as txn:
 
+            is_empty = txn.stat()["entries"] == 0
+
+            if is_empty:
+                print("LMDB is empty")
+            else:
+                print(f"LMDB contains {txn.stat()['entries']} entries")
+
             include_sample_names = (
                 {s.lower() for s in self.include_sample_names}
                 if self.include_sample_names is not None
@@ -66,13 +73,11 @@ class LMDBDataset(Dataset):
                 if self.include_tile_names is not None:
                     if data["tile_name"] in self.include_tile_names:
                         include_keys.append(key)
-                elif self.include_sample_names is not None:
-                    name = data["sample_name"]
-                    if name in self.include_sample_names or name + ".hdf" in self.include_sample_names:
+                elif include_sample_names is not None:
+                    if name in include_sample_names or name + ".hdf" in include_sample_names:
                         include_keys.append(key)
                 else:
                     include_keys.append(key)
-
         self.lmdb_key_list = include_keys
 
     def __len__(self):

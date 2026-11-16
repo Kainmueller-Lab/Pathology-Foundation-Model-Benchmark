@@ -15,7 +15,7 @@ dataset:
   name: 'pathocell2'
   path: /fast/AG_Kainmueller/data/pathocell_v2/lmdb
   split: /fast/AG_Kainmueller/data/pathocell_v2/splits/pathocell_dataset_split.csv
-  label_dict: /fast/AG_Kainmueller/data/pathocell_v2/label_dict.json
+  label_dict: /fast/AG_Kainmueller/data/pathocell_v2/label_dict_reduced.json
   batch_size: 24 #24 for h-optimus-1, maybe just use 16 for all, have used 32 before
   uniform_class_sampling: True
   sample_excluded_classes: False
@@ -45,7 +45,7 @@ loss_fn:
     reduction: none
   class_weighting: true
 
-  exclude_classes: [0, 5, 7]
+  exclude_classes: [0]
 
 augmentations:
   RandomHorizontalFlip:
